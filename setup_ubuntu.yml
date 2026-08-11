@@ -1,7 +1,6 @@
 ---
 - name: setup ubuntu
   hosts: all
-  become: true
   environment:
     DEBIAN_FRONTEND: noninteractive
 
@@ -68,7 +67,9 @@
         dest: "/home/{{ admin_user }}/.oh-my-zsh"
         depth: 1
         update: false
+      become: true
       become_user: "{{ admin_user }}"
+
 
     - name: create .zshrc from template
       ansible.builtin.copy:
