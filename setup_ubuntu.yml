@@ -1,0 +1,109 @@
+---
+- name: setup ubuntu
+  hosts: all
+  become: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+  vars:
+    admin_user: ubuntu
+    zsh_theme: agnoster
+
+  tasks:
+    - name: install packages
+      ansible.builtin.apt:
+        name:
+          - zsh
+          - openssh-server
+          - git
+          - ca-certificates
+          - sudo
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+  - name: create user
+    ansible.builtin.user:
+      name: "{{ admin_user }}"
+      shell: /usr/bin/zsh
+      groups: sudo
+      append: true
+      create_home: true
+
+  - name: ssh service is running?
+    ansible.builtin.service:
+      name: ssh
+      state: started
+      enabled: true
+
+  - name: create .ssh directory
+    ansible.builtin.file:
+      path: "/home/{{ admin_user }}/.ssh"
+      state: directory
+      owner: "{{ admin_user }}"
+      group: "{{ admin_user }}"
+      mode: "0700"
+
+  - name: add ssh public keys
+    ansible.builtin.lineinfile:
+      path: "/home/{{ admin_user }}/.ssh/authorized_keys"
+      line: "{{ item }}"
+      create: true
+      owner: "{{ admin_user }}"
+      group: "{{ admin_user }}"
+      mode: "0600"
+      state: present
+    loop: "{{ ssh_public_keys }}"
+
+  - name: install oh my zsh
+    ansible.builtin.git:
+      repo: https://github.com/ohmyzsh/ohmyzsh.git
+      dest: "/home/{{ admin_user }}/.oh-my-zsh"
+      depth: 1
+      update: false
+    become_user: "{{ admin_user }}"
+
+    - name: create .zshrc from template
+      ansible.builtin.copy:
+        remote_src: true
+        src: "/home/{{ admin_user }}/.oh-my-zsh/templates/zshrc.zsh-template"
+        dest: "/home/{{ admin_user }}/.zshrc"
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+        mode: "0644"
+        force: false
+
+    - name: set agnoster theme
+      ansible.builtin.lineinfile:
+        path: "/home/{{ admin_user }}/.zshrc"
+        regexp: '^ZSH_THEME='
+        line: 'ZSH_THEME="{{ zsh_theme }}"'
+
+    - name: ensure sshd_config.d exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: disable root ssh login
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-no-root.conf
+        content: "PermitRootLogin no\n"
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Validate sshd
+        - Restart ssh
+
+  handlers:
+    - name: Validate sshd
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false
+
+    - name: Restart ssh
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
