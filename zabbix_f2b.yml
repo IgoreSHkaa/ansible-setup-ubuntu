@@ -126,9 +126,9 @@
         state: restarted
 
     - name: restart zabbix-server
-      ansible.builtin.service:
-        name: zabbix-server
-        state: restarted
+      ansible.builtin.shell: |
+        sleep 30 && systemctl restart zabbix-server
+      listen: restart zabbix-server
 
     - name: restart zabbix-agent2
       ansible.builtin.service:
