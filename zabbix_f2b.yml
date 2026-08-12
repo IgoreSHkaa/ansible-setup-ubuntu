@@ -73,7 +73,7 @@
           DBUser=zabbix
           DBPassword={{ zabbix_db_password }}
           TLSAccept=psk
-          TLSPSKIdentity=zabbixPSK
+          TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
       no_log: true
       notify: restart zabbix-server
