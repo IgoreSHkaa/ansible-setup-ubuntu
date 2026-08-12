@@ -96,7 +96,7 @@
       no_log: true
       notify: restart zabbix-server
 
- - name: zabbix server tls config (in dedicated file)
+    - name: zabbix server tls config 
       ansible.builtin.copy:
         dest: /etc/zabbix/zabbix_server.d/tls.conf
         content: |
