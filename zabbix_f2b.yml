@@ -1,5 +1,5 @@
 ---
-- name: zabbix server setup
+- name: zabbix server + agent2 + fail2ban
   hosts: all
   become: true
 
@@ -11,13 +11,14 @@
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.0+ubuntu24.04_all.deb
 
-    - name: install server packages
+    - name: install all packages
       ansible.builtin.apt:
         name:
           - mariadb-server
           - zabbix-server-mysql
           - zabbix-frontend-php
           - zabbix-apache-conf
+          - zabbix-agent2
           - fail2ban
         update_cache: true
 
@@ -71,8 +72,8 @@
           bantime = 1h
           findtime = 10m
       notify: restart f2b
-    
-    - name: psk file for server
+
+    - name: psk file (общий для сервера и агента)
       ansible.builtin.copy:
         dest: /etc/zabbix/agent.psk
         content: "{{ psk_key }}"
@@ -80,7 +81,12 @@
         group: zabbix
         mode: "0600"
 
-    - name: server psk and db config
+    - name: clean old ansible blocks from server config
+      ansible.builtin.shell: |
+        sed -i '/# BEGIN ANSIBLE MANAGED BLOCK/,/# END ANSIBLE MANAGED BLOCK/d' /etc/zabbix/zabbix_server.conf
+      changed_when: false
+
+    - name: zabbix server config (db + tls)
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_server.conf
         block: |
@@ -93,12 +99,25 @@
       no_log: true
       notify: restart zabbix-server
 
+    - name: zabbix agent2 config (local, with tls)
+      ansible.builtin.blockinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        block: |
+          Server=127.0.0.1
+          ServerActive=127.0.0.1
+          Hostname={{ ansible_hostname }}
+          TLSConnect=psk
+          TLSAccept=psk
+          TLSPSKIdentity={{ psk_id }}
+          TLSPSKFile=/etc/zabbix/agent.psk
+      notify: restart zabbix-agent2
+
     - name: start services
       ansible.builtin.service:
         name: "{{ item }}"
         state: started
         enabled: true
-      loop: [zabbix-server, apache2, fail2ban]
+      loop: [zabbix-server, zabbix-agent2, apache2, fail2ban]
 
   handlers:
     - name: restart f2b
@@ -109,4 +128,9 @@
     - name: restart zabbix-server
       ansible.builtin.service:
         name: zabbix-server
+        state: restarted
+
+    - name: restart zabbix-agent2
+      ansible.builtin.service:
+        name: zabbix-agent2
         state: restarted
