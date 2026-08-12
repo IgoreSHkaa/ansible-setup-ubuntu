@@ -1,5 +1,5 @@
 ---
-- name: zabbix agent setup
+- name: zabbix agent2 setup
   hosts: all
   become: true
 
@@ -24,7 +24,7 @@
         group: zabbix
         mode: "0600"
 
-    - name: agent psk config
+    - name: agent2 config
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_agent2.conf
         block: |
@@ -37,7 +37,7 @@
           TLSPSKFile=/etc/zabbix/agent.psk
       notify: restart zabbix-agent2
 
-    - name: start agent
+    - name: start agent2
       ansible.builtin.service:
         name: zabbix-agent2
         state: started
