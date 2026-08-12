@@ -56,6 +56,14 @@
           bantime = 1h
           findtime = 10m
       notify: restart f2b
+    
+    - name: psk file for server
+      ansible.builtin.copy:
+        dest: /etc/zabbix/agent.psk
+        content: "{{ psk_key }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0600"
 
     - name: server psk and db config
       ansible.builtin.blockinfile:
@@ -67,22 +75,6 @@
           TLSAccept=psk
           TLSPSKFile=/etc/zabbix/agent.psk
       no_log: true
-      notify: restart zabbix-server
-
-    - name: psk file for server
-      ansible.builtin.copy:
-        dest: /etc/zabbix/agent.psk
-        content: "{{ psk_key }}"
-        owner: zabbix
-        group: zabbix
-        mode: "0600"
-
-    - name: server psk config
-      ansible.builtin.blockinfile:
-        path: /etc/zabbix/zabbix_server.conf
-        block: |
-          TLSAccept=psk
-          TLSPSKFile=/etc/zabbix/agent.psk
       notify: restart zabbix-server
 
     - name: start services
