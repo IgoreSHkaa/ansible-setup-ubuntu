@@ -1,6 +1,7 @@
 ---
 - name: setup ubuntu
   hosts: all
+  become: true
   environment:
     DEBIAN_FRONTEND: noninteractive
 
