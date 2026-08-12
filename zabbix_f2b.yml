@@ -1,0 +1,92 @@
+---
+- name: zabbix server setup
+  hosts: all
+  become: true
+
+  vars:
+    psk_id: "zabbixPSK"
+
+  tasks:
+    - name: add zabbix repo
+      ansible.builtin.apt:
+        deb: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.0+ubuntu24.04_all.deb
+
+    - name: install server packages
+      ansible.builtin.apt:
+        name:
+          - mariadb-server
+          - zabbix-server-mysql
+          - zabbix-frontend-php
+          - zabbix-apache-conf
+          - fail2ban
+        update_cache: true
+
+    - name: start mariadb
+      ansible.builtin.service:
+        name: mariadb
+        state: started
+        enabled: true
+
+    - name: create zabbix db and db_user
+      ansible.builtin.shell: |
+        mysql -e "CREATE DATABASE IF NOT EXISTS zabbix CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;"
+        mysql -e "CREATE USER IF NOT EXISTS 'zabbix'@'localhost' IDENTIFIED BY '{{ zabbix_db_password }}';"
+        mysql -e "GRANT ALL ON zabbix.* TO 'zabbix'@'localhost'; FLUSH PRIVILEGES;"
+      changed_when: false
+      no_log: true
+
+    - name: fail2ban config
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime = 1h
+          findtime = 10m
+          maxretry = 5
+          backend = auto
+          banaction = iptables-multiport
+
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = /var/log/auth.log
+          backend = polling
+          maxretry = 5
+          bantime = 1h
+          findtime = 10m
+      notify: restart f2b
+
+    - name: psk file for server
+      ansible.builtin.copy:
+        dest: /etc/zabbix/agent.psk
+        content: "{{ psk_key }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0600"
+
+    - name: server psk config
+      ansible.builtin.blockinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        block: |
+          TLSAccept=psk
+          TLSPSKFile=/etc/zabbix/agent.psk
+      notify: restart zabbix-server
+
+    - name: start services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop: [zabbix-server, apache2, fail2ban]
+
+  handlers:
+    - name: restart f2b
+      ansible.builtin.service:
+        name: fail2ban
+        state: restarted
+
+    - name: restart zabbix-server
+      ansible.builtin.service:
+        name: zabbix-server
+        state: restarted

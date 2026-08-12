@@ -1,0 +1,50 @@
+---
+- name: zabbix agent setup
+  hosts: all
+  become: true
+
+  vars:
+    psk_id: "zabbixPSK"
+
+  tasks:
+    - name: add zabbix repo
+      ansible.builtin.apt:
+        deb: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.0+ubuntu24.04_all.deb
+
+    - name: install agent package
+      ansible.builtin.apt:
+        name: zabbix-agent
+        update_cache: true
+
+    - name: psk file for agent
+      ansible.builtin.copy:
+        dest: /etc/zabbix/agent.psk
+        content: "{{ psk_key }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0600"
+
+    - name: agent psk config
+      ansible.builtin.blockinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        block: |
+          Server={{ zabbix_server_ip }}
+          ServerActive={{ zabbix_server_ip }}
+          Hostname={{ ansible_hostname }}
+          TLSConnect=psk
+          TLSAccept=psk
+          TLSPSKIdentity={{ psk_id }}
+          TLSPSKFile=/etc/zabbix/agent.psk
+      notify: restart zabbix-agent
+
+    - name: start agent
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart zabbix-agent
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: restarted
