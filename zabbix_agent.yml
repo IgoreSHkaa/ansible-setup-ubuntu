@@ -11,9 +11,9 @@
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.0+ubuntu24.04_all.deb
 
-    - name: install agent package
+    - name: install agent2 package
       ansible.builtin.apt:
-        name: zabbix-agent
+        name: zabbix-agent2
         update_cache: true
 
     - name: psk file for agent
@@ -26,7 +26,7 @@
 
     - name: agent psk config
       ansible.builtin.blockinfile:
-        path: /etc/zabbix/zabbix_agentd.conf
+        path: /etc/zabbix/zabbix_agent2.conf
         block: |
           Server={{ zabbix_server_ip }}
           ServerActive={{ zabbix_server_ip }}
@@ -35,16 +35,16 @@
           TLSAccept=psk
           TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
-      notify: restart zabbix-agent
+      notify: restart zabbix-agent2
 
     - name: start agent
       ansible.builtin.service:
-        name: zabbix-agent
+        name: zabbix-agent2
         state: started
         enabled: true
 
   handlers:
-    - name: restart zabbix-agent
+    - name: restart zabbix-agent2
       ansible.builtin.service:
-        name: zabbix-agent
+        name: zabbix-agent2
         state: restarted
