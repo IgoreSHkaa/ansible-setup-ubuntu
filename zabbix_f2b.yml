@@ -73,7 +73,7 @@
           findtime = 10m
       notify: restart f2b
 
-    - name: psk file (общий для сервера и агента)
+    - name: psk file 
       ansible.builtin.copy:
         dest: /etc/zabbix/agent.psk
         content: "{{ psk_key }}"
