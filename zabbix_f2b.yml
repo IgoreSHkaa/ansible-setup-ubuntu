@@ -86,20 +86,29 @@
         sed -i '/# BEGIN ANSIBLE MANAGED BLOCK/,/# END ANSIBLE MANAGED BLOCK/d' /etc/zabbix/zabbix_server.conf
       changed_when: false
 
-    - name: zabbix server config (db + tls)
+    - name: zabbix server config 
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_server.conf
         block: |
           DBName=zabbix
           DBUser=zabbix
           DBPassword={{ zabbix_db_password }}
-          TLSAccept=psk
-          TLSPSKIdentity={{ psk_id }}
-          TLSPSKFile=/etc/zabbix/agent.psk
       no_log: true
       notify: restart zabbix-server
 
-    - name: zabbix agent2 config (local, with tls)
+ - name: zabbix server tls config (in dedicated file)
+      ansible.builtin.copy:
+        dest: /etc/zabbix/zabbix_server.d/tls.conf
+        content: |
+          TLSAccept=psk
+          TLSPSKIdentity={{ psk_id }}
+          TLSPSKFile=/etc/zabbix/agent.psk
+        owner: root
+        group: zabbix
+        mode: "0640"
+      notify: restart zabbix-server
+
+    - name: zabbix agent2 config
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_agent2.conf
         block: |
