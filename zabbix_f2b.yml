@@ -57,6 +57,18 @@
           findtime = 10m
       notify: restart f2b
 
+    - name: server psk and db config
+      ansible.builtin.blockinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        block: |
+          DBName=zabbix
+          DBUser=zabbix
+          DBPassword={{ zabbix_db_password }}
+          TLSAccept=psk
+          TLSPSKFile=/etc/zabbix/agent.psk
+      no_log: true
+      notify: restart zabbix-server
+
     - name: psk file for server
       ansible.builtin.copy:
         dest: /etc/zabbix/agent.psk
