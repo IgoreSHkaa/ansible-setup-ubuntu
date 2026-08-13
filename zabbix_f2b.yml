@@ -184,7 +184,7 @@
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
         regexp: '^#?\s*DBPassword='
-      line: 'DBPassword={{ zabbix_db_password }}'
+        line: 'DBPassword={{ zabbix_db_password }}'
 
     - name: Configure Zabbix server for PSK
       ansible.builtin.copy:
