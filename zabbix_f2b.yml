@@ -18,6 +18,7 @@
           - zabbix-server-mysql
           - zabbix-frontend-php
           - zabbix-apache-conf
+          - zabbix-sql-scripts
           - zabbix-agent
           - fail2ban
         update_cache: true
@@ -57,7 +58,6 @@
         owner: www-data
         group: www-data
         mode: "0644"
-        no_log: true
         content: |
           <?php
           // Zabbix GUI configuration file.
@@ -80,6 +80,7 @@
           $ZBX_SERVER_NAME = '';
 
           $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
+      no_log: true
           
     - name: fail2ban config
       ansible.builtin.copy:
