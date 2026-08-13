@@ -187,9 +187,9 @@
         line: 'DBPassword={{ zabbix_db_password }}'
 
     - name: Ensure no unsupported TLS config for server
-  ansible.builtin.file:
-    path: /etc/zabbix/zabbix_server.d/tls.conf
-    state: absent
+      ansible.builtin.file:
+        path: /etc/zabbix/zabbix_server.d/tls.conf
+        state: absent
 
     - name: zabbix agent config autoregistration
       ansible.builtin.blockinfile:
