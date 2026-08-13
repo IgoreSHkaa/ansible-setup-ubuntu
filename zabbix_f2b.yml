@@ -39,9 +39,9 @@
 
     - name: check if zabbix schema is imported
       ansible.builtin.shell: |
-        mysql -uzabbix -p{{ zabbix_db_password }} -e "SHOW TABLES FROM zabbix;" | grep -q users
+        mysql -uzabbix -p'{{ zabbix_db_password }}' -N -B \
+          -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='zabbix' AND table_name='dbversion';"
       register: schema_check
-      failed_when: false
       changed_when: false
       no_log: true
 
@@ -49,7 +49,7 @@
       ansible.builtin.shell: |
         set -o pipefail
         zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | \
-        mysql --default-character-set=utf8mb4 -uzabbix -p{{ zabbix_db_password }} zabbix
+        mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix
       args:
         executable: /bin/bash
       when: schema_check.stdout | trim != '1'
