@@ -8,11 +8,11 @@
 
   tasks:
     - name: Check PSK key is provided
-      ansible.builtin.assert:
-        that:
-          - psk_key is defined
-          - psk_key | length > 0
-        run_once: true
+  ansible.builtin.assert:
+    that:
+      - psk_key is defined
+      - psk_key | length > 0
+    fail_msg: "PSK key is not defined. Please set 'psk_key' variable in Semaphore Secrets."
         
     - name: add zabbix repo
       ansible.builtin.apt:
