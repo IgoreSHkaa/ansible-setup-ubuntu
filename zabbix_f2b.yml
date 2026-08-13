@@ -181,11 +181,11 @@
         line: 'DBUser=zabbix'
 
     - name: set zabbix DBPassword
-      ansible.builtin.lineinfile:
-        path: /etc/zabbix/zabbix_server.conf
-        regexp: '^#?\s*DBPassword='
-        line: 'DBPassword={{ zabbix_db_password }}'
-        no_log: true
+  ansible.builtin.lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '^#?\s*DBPassword='
+    line: 'DBPassword={{ zabbix_db_password }}'
+  no_log: true
 
     - name: Configure Zabbix server for PSK
       ansible.builtin.copy:
