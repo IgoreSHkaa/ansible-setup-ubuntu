@@ -48,6 +48,8 @@
     - name: import zabbix schema
       ansible.builtin.shell: |
         set -o pipefail
+        mysql -e "DROP DATABASE IF EXISTS zabbix; CREATE DATABASE zabbix CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;"
+        mysql -e "GRANT ALL ON zabbix.* TO 'zabbix'@'localhost'; FLUSH PRIVILEGES;"
         zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | \
         mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix
       args:
