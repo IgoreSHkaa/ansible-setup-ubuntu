@@ -182,19 +182,28 @@
       notify: restart zabbix-server
       when: zabbix_tls_supported | bool
 
-    - name: zabbix agent config
+    - name: zabbix agent config (with auto-registration)
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_agentd.conf
         block: |
-          Server=127.0.0.1
-          ServerActive=127.0.0.1
+          Server={{ zabbix_server_ip | default('127.0.0.1') }}
+          ServerActive={{ zabbix_server_ip | default('127.0.0.1') }}
           Hostname={{ ansible_facts['hostname'] }}
+          HostMetadataItem=system.uname
+          HostMetadata=ubuntu_zabbix_agent
+          RefreshActiveChecks=120
+          BufferSend=5
+          BufferSize=100
+          {% if zabbix_tls_supported | bool %}
           TLSConnect=psk
           TLSAccept=psk
           TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
+          {% else %}
+          TLSConnect=unencrypted
+          TLSAccept=unencrypted
+          {% endif %}
       notify: restart zabbix-agent
-      when: zabbix_tls_supported | bool
 
     - name: zabbix agent without tls config
       ansible.builtin.blockinfile:
