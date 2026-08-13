@@ -82,11 +82,14 @@
           $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
       no_log: true
 
-    - name: point apache to new frontend path (Zabbix >= 7.2)
-      ansible.builtin.replace:
-        path: /etc/apache2/conf-available/zabbix.conf
-        regexp: '/usr/share/zabbix(?!/ui)'
-        replace: '/usr/share/zabbix/ui'
+    - name: update apache zabbix config for new frontend path
+      ansible.builtin.shell: |
+        if grep -q '/usr/share/zabbix"' /etc/apache2/conf-available/zabbix.conf; then
+          sed -i 's:/usr/share/zabbix":/usr/share/zabbix/ui":g' /etc/apache2/conf-available/zabbix.conf
+          echo "changed"
+        fi
+      register: apache_path_update
+      changed_when: "'changed' in apache_path_update.stdout"
       notify: restart apache2
           
     - name: fail2ban config
