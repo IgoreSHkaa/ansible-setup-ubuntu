@@ -187,21 +187,6 @@
         insertafter: 'EOF'
       no_log: true
 
-    - name: set fact for TLS support
-      ansible.builtin.set_fact:
-        zabbix_tls_supported: true
-
-    - name: zabbix server tls config
-      ansible.builtin.copy:
-        dest: /etc/zabbix/zabbix_server.d/tls.conf
-        content: |
-          TLSPSKIdentity={{ psk_id }}
-          TLSPSKFile=/etc/zabbix/agent.psk
-        owner: root
-        group: zabbix
-        mode: "0640"
-      when: zabbix_tls_supported | bool
-
     - name: zabbix agent config autoregistration
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_agentd.conf
