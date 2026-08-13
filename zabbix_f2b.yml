@@ -1,5 +1,5 @@
 ---
-- name: zabbix server + agent2 + fail2ban
+- name: zabbix server + agent + fail2ban
   hosts: all
   become: true
 
@@ -73,7 +73,7 @@
           findtime = 10m
       notify: restart f2b
 
-    - name: psk file 
+    - name: psk file
       ansible.builtin.copy:
         dest: /etc/zabbix/agent.psk
         content: "{{ psk_key }}"
@@ -81,17 +81,39 @@
         group: zabbix
         mode: "0600"
 
-    - name: zabbix server config 
-      ansible.builtin.blockinfile:
+    - name: set zabbix DBName
+      ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
-        block: |
-          DBName=zabbix
-          DBUser=zabbix
-          DBPassword={{ zabbix_db_password }}
+        regexp: '^#?\s*DBName='
+        line: 'DBName=zabbix'
+      notify: restart zabbix-server
+
+    - name: set zabbix DBUser
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        regexp: '^#?\s*DBUser='
+        line: 'DBUser=zabbix'
+      notify: restart zabbix-server
+
+    - name: set zabbix DBPassword
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        regexp: '^#?\s*DBPassword='
+        line: 'DBPassword={{ zabbix_db_password }}'
       no_log: true
       notify: restart zabbix-server
 
-    - name: zabbix server tls config 
+    - name: check zabbix server TLS support
+      ansible.builtin.command: /usr/sbin/zabbix_server --help
+      register: zabbix_help
+      changed_when: false
+      check_mode: false
+
+    - name: set fact for TLS support
+      ansible.builtin.set_fact:
+        zabbix_tls_supported: "{{ 'TLSAccept' in zabbix_help.stdout }}"
+
+    - name: zabbix server tls config (if supported)
       ansible.builtin.copy:
         dest: /etc/zabbix/zabbix_server.d/tls.conf
         content: |
@@ -102,6 +124,7 @@
         group: zabbix
         mode: "0640"
       notify: restart zabbix-server
+      when: zabbix_tls_supported | bool
 
     - name: zabbix agent config
       ansible.builtin.blockinfile:
@@ -115,13 +138,26 @@
           TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
       notify: restart zabbix-agent
+      when: zabbix_tls_supported | bool
+
+    - name: zabbix agent without tls config
+      ansible.builtin.blockinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        block: |
+          Server=127.0.0.1
+          ServerActive=127.0.0.1
+          Hostname={{ ansible_facts['hostname'] }}
+          TLSConnect=unencrypted
+          TLSAccept=unencrypted
+      notify: restart zabbix-agent
+      when: not zabbix_tls_supported | bool
 
     - name: start services
       ansible.builtin.service:
         name: "{{ item }}"
         state: started
         enabled: true
-      loop: [zabbix-server, zabbix-agent2, apache2, fail2ban]
+      loop: [zabbix-server, zabbix-agent, apache2, fail2ban]
 
   handlers:
     - name: restart f2b
