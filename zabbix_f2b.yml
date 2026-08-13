@@ -9,7 +9,7 @@
   tasks:
     - name: add zabbix repo
       ansible.builtin.apt:
-        deb: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.0+ubuntu24.04_all.deb
+        deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu24.04_all.deb
 
     - name: install all packages
       ansible.builtin.apt:
@@ -18,7 +18,7 @@
           - zabbix-server-mysql
           - zabbix-frontend-php
           - zabbix-apache-conf
-          - zabbix-agent2
+          - zabbix-agent
           - fail2ban
         update_cache: true
 
