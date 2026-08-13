@@ -113,7 +113,7 @@
       ansible.builtin.set_fact:
         zabbix_tls_supported: "{{ 'TLSAccept' in zabbix_help.stdout }}"
 
-    - name: zabbix server tls config (if supported)
+    - name: zabbix server tls config 
       ansible.builtin.copy:
         dest: /etc/zabbix/zabbix_server.d/tls.conf
         content: |
