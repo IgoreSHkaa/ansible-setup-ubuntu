@@ -82,11 +82,13 @@
           $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
       no_log: true
 
-    - name: update apache zabbix config for new frontend path
+    - name: point apache to new frontend path (Zabbix >= 7.2)
       ansible.builtin.shell: |
-        if grep -q '/usr/share/zabbix"' /etc/apache2/conf-available/zabbix.conf; then
-          sed -i 's:/usr/share/zabbix":/usr/share/zabbix/ui":g' /etc/apache2/conf-available/zabbix.conf
-          echo "changed"
+        CONF=/etc/apache2/conf-available/zabbix.conf
+        if grep -qP '/usr/share/zabbix(?!/ui)' "$CONF"; then
+          sed -i -e 's|/usr/share/zabbix/ui|/usr/share/zabbix|g' \
+                 -e 's|/usr/share/zabbix|/usr/share/zabbix/ui|g' "$CONF"
+          echo changed
         fi
       register: apache_path_update
       changed_when: "'changed' in apache_path_update.stdout"
