@@ -34,6 +34,7 @@
         mysql -e "CREATE DATABASE IF NOT EXISTS zabbix CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;"
         mysql -e "CREATE USER IF NOT EXISTS 'zabbix'@'localhost' IDENTIFIED BY '{{ zabbix_db_password }}';"
         mysql -e "GRANT ALL ON zabbix.* TO 'zabbix'@'localhost'; FLUSH PRIVILEGES;"
+        mysql -e "SET GLOBAL log_bin_trust_function_creators = 1;"
       changed_when: false
       no_log: true
 
@@ -50,13 +51,12 @@
         set -o pipefail
         mysql -e "DROP DATABASE IF EXISTS zabbix; CREATE DATABASE zabbix CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;"
         mysql -e "GRANT ALL ON zabbix.* TO 'zabbix'@'localhost'; FLUSH PRIVILEGES;"
-        zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | \
+        zcat "{{ zabbix_sql_script.files[0].path }}" | \
         mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix
       args:
         executable: /bin/bash
       when: schema_check.stdout | trim != '1'
-      no_log: true
-
+      
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
         dest: /etc/zabbix/web/zabbix.conf.php
