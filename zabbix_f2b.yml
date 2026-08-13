@@ -53,7 +53,7 @@
       args:
         executable: /bin/bash
       when: schema_check.stdout | trim != '1'
-  no_log: true
+      no_log: true
 
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
