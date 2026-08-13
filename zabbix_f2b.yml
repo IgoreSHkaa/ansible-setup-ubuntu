@@ -7,6 +7,17 @@
     psk_id: "zabbixPSK"
 
   tasks:
+
+    - name: generate psk key if not provided
+      ansible.builtin.set_fact:
+        psk_key: "{{ lookup('password', '/dev/null length=64 chars=hexdigits') }}"
+      when: psk_key is not defined or psk_key | length == 0
+      run_once: true
+
+    - name: debug psk key (remove after testing)
+      ansible.builtin.debug:
+        msg: "Generated PSK key: {{ psk_key }}"
+  
     - name: add zabbix repo
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu24.04_all.deb
