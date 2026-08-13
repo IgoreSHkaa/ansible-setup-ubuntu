@@ -81,11 +81,6 @@
         group: zabbix
         mode: "0600"
 
-    - name: clean old ansible blocks from server config
-      ansible.builtin.shell: |
-        sed -i '/# BEGIN ANSIBLE MANAGED BLOCK/,/# END ANSIBLE MANAGED BLOCK/d' /etc/zabbix/zabbix_server.conf
-      changed_when: false
-
     - name: zabbix server config 
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_server.conf
@@ -108,18 +103,18 @@
         mode: "0640"
       notify: restart zabbix-server
 
-    - name: zabbix agent2 config
+    - name: zabbix agent config
       ansible.builtin.blockinfile:
-        path: /etc/zabbix/zabbix_agent2.conf
+        path: /etc/zabbix/zabbix_agentd.conf
         block: |
           Server=127.0.0.1
           ServerActive=127.0.0.1
-          Hostname={{ ansible_hostname }}
+          Hostname={{ ansible_facts['hostname'] }}
           TLSConnect=psk
           TLSAccept=psk
           TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
-      notify: restart zabbix-agent2
+      notify: restart zabbix-agent
 
     - name: start services
       ansible.builtin.service:
@@ -139,7 +134,7 @@
         name: zabbix-server
         state: restarted
 
-    - name: restart zabbix-agent2
+    - name: restart zabbix-agent
       ansible.builtin.service:
-        name: zabbix-agent2
+        name: zabbix-agent
         state: restarted
