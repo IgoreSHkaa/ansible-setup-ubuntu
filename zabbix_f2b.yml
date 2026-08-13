@@ -218,7 +218,7 @@
           ansible.builtin.service:
             name: zabbix-server
             state: started
-        enabled: true
+          enabled: true
 
       - name: start other services
         ansible.builtin.service:
