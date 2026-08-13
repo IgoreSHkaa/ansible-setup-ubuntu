@@ -46,6 +46,14 @@
       changed_when: false
       no_log: true
 
+    - name: find zabbix sql script path
+      ansible.builtin.find:
+        paths: /usr/share
+        patterns: "server.sql.gz"
+        recurse: yes
+      register: zabbix_sql_script
+      failed_when: zabbix_sql_script.files | length == 0
+
     - name: import zabbix schema
       ansible.builtin.shell: |
         set -o pipefail
