@@ -186,16 +186,10 @@
         regexp: '^#?\s*DBPassword='
         line: 'DBPassword={{ zabbix_db_password }}'
 
-    - name: Configure Zabbix server for PSK
-      ansible.builtin.copy:
-        dest: /etc/zabbix/zabbix_server.d/tls.conf
-        content: |
-          TLSPSKIdentity={{ psk_id }}
-          TLSPSKFile=/etc/zabbix/agent.psk
-        owner: root
-        group: zabbix
-        mode: "0640"
-      notify: restart zabbix-server
+    - name: Ensure no unsupported TLS config for server
+  ansible.builtin.file:
+    path: /etc/zabbix/zabbix_server.d/tls.conf
+    state: absent
 
     - name: zabbix agent config autoregistration
       ansible.builtin.blockinfile:
