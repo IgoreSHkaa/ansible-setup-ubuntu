@@ -7,12 +7,13 @@
     psk_id: "zabbixPSK"
 
   tasks:
-    - name: generate psk key if not provided
-      ansible.builtin.set_fact:
-        psk_key: "{{ lookup('password', '/dev/null length=64 chars=hexdigits') }}"
-      when: psk_key is not defined or psk_key | length == 0
-      run_once: true
-
+    - name: Check PSK key is provided
+      ansible.builtin.assert:
+        that:
+          - psk_key is defined
+          - psk_key | length > 0
+        run_once: true
+        
     - name: add zabbix repo
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu24.04_all.deb
@@ -184,8 +185,19 @@
         path: /etc/zabbix/zabbix_server.conf
         regexp: '^#?\s*DBPassword='
         line: 'DBPassword={{ zabbix_db_password }}'
-        insertafter: 'EOF'
-      no_log: true
+        no_log: true
+
+    - name: Configure Zabbix server for PSK
+      ansible.builtin.copy:
+        dest: /etc/zabbix/zabbix_server.d/tls.conf
+        content: |
+          TLSAccept=psk
+          TLSPSKIdentity={{ psk_id }}
+          TLSPSKFile=/etc/zabbix/agent.psk
+        owner: root
+        group: zabbix
+        mode: "0640"
+      notify: restart zabbix-server
 
     - name: zabbix agent config autoregistration
       ansible.builtin.blockinfile:
