@@ -47,10 +47,13 @@
 
     - name: import zabbix schema
       ansible.builtin.shell: |
+        set -o pipefail
         zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | \
         mysql --default-character-set=utf8mb4 -uzabbix -p{{ zabbix_db_password }} zabbix
-      when: schema_check.rc != 0
-      no_log: true
+      args:
+        executable: /bin/bash
+      when: schema_check.stdout | trim != '1'
+  no_log: true
 
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
