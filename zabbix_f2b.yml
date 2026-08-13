@@ -11,12 +11,7 @@
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu24.04_all.deb
 
-
-    - name: add zabbix repo
-      ansible.builtin.apt:
-        deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu24.04_all.deb
-
-    - name: install AND upgrade all packages to repo versions (7.4)
+    - name: install AND upgrade all packages to repo versions 
       ansible.builtin.apt:
         name:
           - mariadb-server
@@ -26,18 +21,8 @@
           - zabbix-sql-scripts
           - zabbix-agent
           - fail2ban
-        state: latest          
+        state: latest
         update_cache: true
-
-    - name: show installed zabbix server version
-      ansible.builtin.command: /usr/sbin/zabbix_server -V
-      register: zbx_ver
-      changed_when: false
-      failed_when: false
-
-    - name: print zabbix version
-      ansible.builtin.debug:
-        msg: "{{ zbx_ver.stdout_lines[0] | default('binary not found') }}"
 
     - name: start mariadb
       ansible.builtin.service:
@@ -99,7 +84,6 @@
         mode: "0644"
         content: |
           <?php
-          // Zabbix GUI configuration file.
           $DB['TYPE']     = 'MYSQL';
           $DB['SERVER']   = 'localhost';
           $DB['PORT']     = '0';
@@ -113,15 +97,13 @@
           $DB['CA_FILE'] = '';
           $DB['VERIFY_HOST'] = false;
           $DB['CIPHER_LIST'] = '';
-
           $ZBX_SERVER      = 'localhost';
           $ZBX_SERVER_PORT = '10051';
           $ZBX_SERVER_NAME = '';
-
           $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
       no_log: true
 
-    - name: point apache to new frontend path (Zabbix >= 7.2)
+    - name: point apache to new frontend path 
       ansible.builtin.shell: |
         CONF=/etc/apache2/conf-available/zabbix.conf
         if grep -qP '/usr/share/zabbix(?!/ui)' "$CONF"; then
@@ -143,7 +125,6 @@
           maxretry = 5
           backend = auto
           banaction = iptables-multiport
-
           [sshd]
           enabled = true
           port = ssh
@@ -186,21 +167,14 @@
       no_log: true
       notify: restart zabbix-server
 
-    - name: check zabbix server TLS support
-      ansible.builtin.command: /usr/sbin/zabbix_server --help
-      register: zabbix_help
-      changed_when: false
-      check_mode: false
-
-    - name: set fact for TLS support
+    - name: set fact for TLS support (always true for official Zabbix packages)
       ansible.builtin.set_fact:
-        zabbix_tls_supported: "{{ 'TLSAccept' in (zabbix_help.stdout + zabbix_help.stderr) }}"
+        zabbix_tls_supported: true
 
     - name: zabbix server tls config
       ansible.builtin.copy:
         dest: /etc/zabbix/zabbix_server.d/tls.conf
         content: |
-          TLSAccept=psk
           TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
         owner: root
@@ -221,15 +195,10 @@
           RefreshActiveChecks=120
           BufferSend=5
           BufferSize=100
-          {% if zabbix_tls_supported | bool %}
           TLSConnect=psk
           TLSAccept=psk
           TLSPSKIdentity={{ psk_id }}
           TLSPSKFile=/etc/zabbix/agent.psk
-          {% else %}
-          TLSConnect=unencrypted
-          TLSAccept=unencrypted
-          {% endif %}
       notify: restart zabbix-agent
 
     - name: start and verify services
@@ -249,15 +218,19 @@
           retries: 6
           delay: 10
       rescue:
-        - name: dump last lines of zabbix server log
-          ansible.builtin.command: tail -n 40 /var/log/zabbix/zabbix_server.log
-          register: zbx_log
+        - name: dump journalctl and zabbix log
+          ansible.builtin.shell: |
+            echo "=== JOURNALCTL ==="
+            journalctl -u zabbix-server -n 30 --no-pager 2>&1
+            echo "=== ZABBIX LOG ==="
+            tail -n 50 /var/log/zabbix/zabbix_server.log 2>&1
+          register: zbx_debug_log
           changed_when: false
           failed_when: false
 
-        - name: fail with server log attached
+        - name: fail with detailed log
           ansible.builtin.fail:
-            msg: "Zabbix server не поднялся. Лог: {{ zbx_log.stdout_lines | join(' | ') }}"
+            msg: "Zabbix server не поднялся. Лог: \n{{ zbx_debug_log.stdout }}"
 
   handlers:
     - name: restart f2b
