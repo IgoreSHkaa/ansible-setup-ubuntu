@@ -81,6 +81,13 @@
 
           $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
       no_log: true
+
+    - name: point apache to new frontend path (Zabbix >= 7.2)
+      ansible.builtin.replace:
+        path: /etc/apache2/conf-available/zabbix.conf
+        regexp: '/usr/share/zabbix(?!/ui)'
+        replace: '/usr/share/zabbix/ui'
+      notify: restart apache2
           
     - name: fail2ban config
       ansible.builtin.copy:
@@ -194,6 +201,11 @@
     - name: restart f2b
       ansible.builtin.service:
         name: fail2ban
+        state: restarted
+
+    - name: restart apache2
+      ansible.builtin.service:
+        name: apache2
         state: restarted
 
     - name: restart zabbix-server
