@@ -214,19 +214,25 @@
 
     - name: start and verify services
       block:
-        - name: start services
+        - name: start zabbix-server
           ansible.builtin.service:
-            name: "{{ item }}"
+            name: zabbix-server
             state: started
             enabled: true
-          loop: [zabbix-server, zabbix-agent, apache2, fail2ban]
+
+      - name: start other services
+        ansible.builtin.service:
+          name: "{{ item }}"
+          state: started
+          enabled: true
+        loop: [zabbix-agent, apache2, fail2ban]
 
         - name: wait for zabbix-server to become active
           ansible.builtin.command: systemctl is-active zabbix-server
           register: zbx_status
           changed_when: false
           until: zbx_status.stdout == 'active'
-          retries: 6
+          retries: 12
           delay: 10
       rescue:
         - name: dump journalctl and zabbix log
