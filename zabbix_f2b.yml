@@ -144,28 +144,6 @@
           -sha256
         creates: "{{ tls_dir }}/server.crt"
 
-    - name: generate agent CSR
-      ansible.builtin.command:
-        cmd: >-
-          openssl req -new
-          -key "{{ tls_dir }}/agent.key"
-          -out "{{ tls_dir }}/agent.csr"
-          -subj "{{ tls_agent_subject }}"
-        creates: "{{ tls_dir }}/agent.csr"
-
-    - name: sign agent certificate with CA
-      ansible.builtin.command:
-        cmd: >-
-          openssl x509 -req
-          -in "{{ tls_dir }}/agent.csr"
-          -CA "{{ tls_dir }}/ca.crt"
-          -CAkey "{{ tls_dir }}/ca.key"
-          -CAcreateserial
-          -out "{{ tls_dir }}/agent.crt"
-          -days {{ tls_cert_days }}
-          -sha256
-        creates: "{{ tls_dir }}/agent.crt"
-
     - name: set permissions on private keys
       ansible.builtin.file:
         path: "{{ item }}"
@@ -192,7 +170,29 @@
       ansible.builtin.command:
         cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
         creates: "{{ tls_dir }}/agent.key"
-      
+
+    - name: generate agent CSR
+      ansible.builtin.command:
+        cmd: >-
+          openssl req -new
+          -key "{{ tls_dir }}/agent.key"
+          -out "{{ tls_dir }}/agent.csr"
+          -subj "{{ tls_agent_subject }}"
+        creates: "{{ tls_dir }}/agent.csr"
+  
+    - name: sign agent certificate with CA
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509 -req
+          -in "{{ tls_dir }}/agent.csr"
+          -CA "{{ tls_dir }}/ca.crt"
+          -CAkey "{{ tls_dir }}/ca.key"
+          -CAcreateserial
+          -out "{{ tls_dir }}/agent.crt"
+          -days {{ tls_cert_days }}
+          -sha256
+        creates: "{{ tls_dir }}/agent.crt"
+
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
         dest: /etc/zabbix/web/zabbix.conf.php
@@ -253,14 +253,6 @@
           findtime = 10m
       notify: restart f2b
 
-    - name: psk file
-      ansible.builtin.copy:
-        dest: /etc/zabbix/agent.psk
-        content: "{{ psk_key }}"
-        owner: zabbix
-        group: zabbix
-        mode: "0600"
-
     - name: set zabbix DBName
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
@@ -291,7 +283,7 @@
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/server.key' }
       notify: restart zabbix-server
 
-     name: zabbix agent config with TLS certificates
+    - name: zabbix agent config with TLS certificates
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_agentd.conf
         regexp: '^{{ item.key }}='
