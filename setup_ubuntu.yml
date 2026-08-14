@@ -43,7 +43,7 @@
         state: started
         enabled: true
 
-- name: ensure keyrings directory exists
+    - name: ensure keyrings directory exists
       ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
