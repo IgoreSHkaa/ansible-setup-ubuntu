@@ -283,7 +283,6 @@
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_server.conf
         block: |
-          # 🔐 TLS Certificates for Server
           TLSAccept=cert
           TLSCAFile={{ tls_dir }}/ca.crt
           TLSCertFile={{ tls_dir }}/server.crt
@@ -305,7 +304,6 @@
           RefreshActiveChecks=120
           BufferSend=5
           BufferSize=100
-          # 🔐 TLS Certificates for Agent
           TLSConnect=cert
           TLSAccept=cert
           TLSCAFile={{ tls_dir }}/ca.crt
