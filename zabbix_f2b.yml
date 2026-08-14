@@ -280,16 +280,15 @@
         line: 'DBPassword={{ zabbix_db_password }}'
 
     - name: configure zabbix server TLS settings
-      ansible.builtin.blockinfile:
+      ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
-        marker: "# {mark} TLS CONFIG FOR SERVER"
-        block: |
-          TLSAccept=cert
-          TLSCAFile={{ tls_dir }}/ca.crt
-          TLSCertFile={{ tls_dir }}/server.crt
-          TLSKeyFile={{ tls_dir }}/server.key
-          TLSCipherAll=EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
-          TLSCipherAll13=TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+        regexp: '^{{ item.key }}='
+        line: '{{ item.key }}={{ item.value }}'
+      loop:
+        - { key: 'TLSAccept', value: 'cert' }
+        - { key: 'TLSCAFile', value: '{{ tls_dir }}/ca.crt' }
+        - { key: 'TLSCertFile', value: '{{ tls_dir }}/server.crt' }
+        - { key: 'TLSKeyFile', value: '{{ tls_dir }}/server.key' }
       notify: restart zabbix-server
 
     - name: zabbix agent config with TLS certificates
