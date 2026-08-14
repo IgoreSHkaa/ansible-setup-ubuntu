@@ -4,7 +4,7 @@
   become: true
 
   vars:
-    psk_id: "zabbixPSK"
+    tls_dir: /etc/zabbix/ssl
 
   tasks:
     - name: add zabbix repo
@@ -21,6 +21,7 @@
           - zabbix-sql-scripts
           - zabbix-agent
           - fail2ban
+          - openssl 
         state: latest
         update_cache: true
 
@@ -87,6 +88,111 @@
         executable: /bin/bash
       when: schema_check.stdout | trim != '1'
 
+    - name: create tls directory
+      ansible.builtin.file:
+        path: "{{ tls_dir }}"
+        state: directory
+        owner: zabbix
+        group: zabbix
+        mode: "0750"
+
+    - name: check if CA certificate already exists
+      ansible.builtin.stat:
+        path: "{{ tls_dir }}/ca.crt"
+      register: ca_cert_stat
+
+    - name: generate CA private key
+      ansible.builtin.command:
+        cmd: openssl genrsa -out "{{ tls_dir }}/ca.key" 4096
+        creates: "{{ tls_dir }}/ca.key"
+      when: not ca_cert_stat.stat.exists
+
+    - name: generate CA certificate
+      ansible.builtin.command:
+        cmd: >-
+          openssl req -x509 -new -nodes
+          -key "{{ tls_dir }}/ca.key"
+          -sha256 -days {{ tls_cert_days }}
+          -out "{{ tls_dir }}/ca.crt"
+          -subj "{{ tls_ca_subject }}"
+        creates: "{{ tls_dir }}/ca.crt"
+
+    - name: generate server private key
+      ansible.builtin.command:
+        cmd: openssl genrsa -out "{{ tls_dir }}/server.key" 4096
+        creates: "{{ tls_dir }}/server.key"
+
+    - name: generate server CSR
+      ansible.builtin.command:
+        cmd: >-
+          openssl req -new
+          -key "{{ tls_dir }}/server.key"
+          -out "{{ tls_dir }}/server.csr"
+          -subj "{{ tls_server_subject }}"
+        creates: "{{ tls_dir }}/server.csr"
+
+    - name: sign server certificate with CA
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509 -req
+          -in "{{ tls_dir }}/server.csr"
+          -CA "{{ tls_dir }}/ca.crt"
+          -CAkey "{{ tls_dir }}/ca.key"
+          -CAcreateserial
+          -out "{{ tls_dir }}/server.crt"
+          -days {{ tls_cert_days }}
+          -sha256
+        creates: "{{ tls_dir }}/server.crt"
+
+    - name: generate agent CSR
+      ansible.builtin.command:
+        cmd: >-
+          openssl req -new
+          -key "{{ tls_dir }}/agent.key"
+          -out "{{ tls_dir }}/agent.csr"
+          -subj "{{ tls_agent_subject }}"
+        creates: "{{ tls_dir }}/agent.csr"
+
+    - name: sign agent certificate with CA
+      ansible.builtin.command:
+        cmd: >-
+          openssl x509 -req
+          -in "{{ tls_dir }}/agent.csr"
+          -CA "{{ tls_dir }}/ca.crt"
+          -CAkey "{{ tls_dir }}/ca.key"
+          -CAcreateserial
+          -out "{{ tls_dir }}/agent.crt"
+          -days {{ tls_cert_days }}
+          -sha256
+        creates: "{{ tls_dir }}/agent.crt"
+
+    - name: set permissions on private keys
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0600"
+      loop:
+        - "{{ tls_dir }}/ca.key"
+        - "{{ tls_dir }}/server.key"
+        - "{{ tls_dir }}/agent.key"
+
+    - name: set permissions on certificates
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0644"
+      loop:
+        - "{{ tls_dir }}/ca.crt"
+        - "{{ tls_dir }}/server.crt"
+        - "{{ tls_dir }}/agent.crt"
+        
+    - name: generate agent private key
+      ansible.builtin.command:
+        cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
+        creates: "{{ tls_dir }}/agent.key"
+      
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
         dest: /etc/zabbix/web/zabbix.conf.php
@@ -173,12 +279,21 @@
         regexp: '^#?\s*DBPassword='
         line: 'DBPassword={{ zabbix_db_password }}'
 
-    - name: Ensure no unsupported TLS config for server
-      ansible.builtin.file:
-        path: /etc/zabbix/zabbix_server.d/tls.conf
-        state: absent
+- name: configure zabbix server TLS settings
+      ansible.builtin.blockinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        block: |
+          # 🔐 TLS Certificates for Server
+          TLSAccept=cert
+          TLSCAFile={{ tls_dir }}/ca.crt
+          TLSCertFile={{ tls_dir }}/server.crt
+          TLSKeyFile={{ tls_dir }}/server.key
+          TLSCipherAll=EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
+          TLSCipherAll13=TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+        marker: "# {mark} TLS CONFIG FOR SERVER"
+      notify: restart zabbix-server
 
-    - name: zabbix agent config autoregistration
+    - name: zabbix agent config with TLS certificates
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_agentd.conf
         block: |
@@ -190,10 +305,18 @@
           RefreshActiveChecks=120
           BufferSend=5
           BufferSize=100
-          TLSConnect=psk
-          TLSAccept=psk
-          TLSPSKIdentity={{ psk_id }}
-          TLSPSKFile=/etc/zabbix/agent.psk
+          # 🔐 TLS Certificates for Agent
+          TLSConnect=cert
+          TLSAccept=cert
+          TLSCAFile={{ tls_dir }}/ca.crt
+          TLSCertFile={{ tls_dir }}/agent.crt
+          TLSKeyFile={{ tls_dir }}/agent.key
+          TLSServerCertIssuer={{ tls_ca_subject | regex_replace('^/CN=', 'CN=') }}
+          TLSServerCertSubject={{ tls_server_subject | regex_replace('^/CN=', 'CN=') }}
+          TLSCipherAll=EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
+          TLSCipherAll13=TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+        marker: "# {mark} TLS CONFIG FOR AGENT"
+      notify: restart zabbix-agent
 
     - name: start and verify services
       block:
