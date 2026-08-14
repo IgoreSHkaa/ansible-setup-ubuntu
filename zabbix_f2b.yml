@@ -291,28 +291,25 @@
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/server.key' }
       notify: restart zabbix-server
 
-    - name: zabbix agent config with TLS certificates
-      ansible.builtin.blockinfile:
+     name: zabbix agent config with TLS certificates
+      ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_agentd.conf
-        block: |
-          Server={{ zabbix_server_ip | default('127.0.0.1') }}
-          ServerActive={{ zabbix_server_ip | default('127.0.0.1') }}
-          Hostname={{ ansible_facts['hostname'] }}
-          HostMetadataItem=system.uname
-          HostMetadata=ubuntu_zabbix_agent
-          RefreshActiveChecks=120
-          BufferSend=5
-          BufferSize=100
-          TLSConnect=cert
-          TLSAccept=cert
-          TLSCAFile={{ tls_dir }}/ca.crt
-          TLSCertFile={{ tls_dir }}/agent.crt
-          TLSKeyFile={{ tls_dir }}/agent.key
-          TLSServerCertIssuer={{ tls_ca_subject | regex_replace('^/CN=', 'CN=') }}
-          TLSServerCertSubject={{ tls_server_subject | regex_replace('^/CN=', 'CN=') }}
-          TLSCipherAll=EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
-          TLSCipherAll13=TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
-        marker: "# {mark} TLS CONFIG FOR AGENT"
+        regexp: '^{{ item.key }}='
+        line: '{{ item.key }}={{ item.value }}'
+      loop:
+        - { key: 'Server', value: '{{ zabbix_server_ip | default("127.0.0.1") }}' }
+        - { key: 'ServerActive', value: '{{ zabbix_server_ip | default("127.0.0.1") }}' }
+        - { key: 'Hostname', value: '{{ ansible_facts["hostname"] }}' }
+        - { key: 'HostMetadataItem', value: 'system.uname' }
+        - { key: 'HostMetadata', value: 'ubuntu_zabbix_agent' }
+        - { key: 'RefreshActiveChecks', value: '120' }
+        - { key: 'BufferSend', value: '5' }
+        - { key: 'BufferSize', value: '100' }
+        - { key: 'TLSConnect', value: 'cert' }
+        - { key: 'TLSAccept', value: 'cert' }
+        - { key: 'TLSCAFile', value: '{{ tls_dir }}/ca.crt' }
+        - { key: 'TLSCertFile', value: '{{ tls_dir }}/agent.crt' }
+        - { key: 'TLSKeyFile', value: '{{ tls_dir }}/agent.key' }
       notify: restart zabbix-agent
 
     - name: start and verify services
