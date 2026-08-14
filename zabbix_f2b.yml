@@ -279,7 +279,7 @@
         regexp: '^#?\s*DBPassword='
         line: 'DBPassword={{ zabbix_db_password }}'
 
-- name: configure zabbix server TLS settings
+    - name: configure zabbix server TLS settings
       ansible.builtin.blockinfile:
         path: /etc/zabbix/zabbix_server.conf
         block: |
