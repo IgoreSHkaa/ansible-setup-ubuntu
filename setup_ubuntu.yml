@@ -43,6 +43,55 @@
         state: started
         enabled: true
 
+- name: ensure keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: download docker gpg key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+      register: docker_key_download
+
+    - name: get system architecture
+      ansible.builtin.command: dpkg --print-architecture
+      register: dpkg_architecture
+      changed_when: false
+
+    - name: add docker repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ dpkg_architecture.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+        update_cache: true
+
+    - name: install docker packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin   
+        state: latest
+        update_cache: true
+
+    - name: ensure docker service is running and enabled
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: add admin user to docker group
+      ansible.builtin.user:
+        name: "{{ admin_user }}"
+        groups: docker
+        append: true
+      register: docker_group_added
+
     - name: create .ssh directory
       ansible.builtin.file:
         path: "/home/{{ admin_user }}/.ssh"
@@ -70,7 +119,6 @@
         update: false
       become: true
       become_user: "{{ admin_user }}"
-
 
     - name: create .zshrc from template
       ansible.builtin.copy:
