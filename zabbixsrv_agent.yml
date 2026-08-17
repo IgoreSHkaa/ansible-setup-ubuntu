@@ -7,13 +7,17 @@
 
   vars:
     tls_dir: /etc/zabbix/ssl
+    tls_ca_subject: "/CN=Zabbix CA"
+    tls_server_subject: "/CN=Zabbix Server"
+    tls_agent_subject: "/CN=Zabbix Agent"
+    tls_cert_days: 3650
 
   tasks:
     - name: add zabbix repo
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu26.04_all.deb
 
-    - name: install ands upgrade all packages to repo versions 
+    - name: install and upgrade all packages
       ansible.builtin.apt:
         name:
           - mysql-server
@@ -35,6 +39,14 @@
         state: latest
         update_cache: true
 
+    - name: enable apache2 proxy modules
+      ansible.builtin.command: a2enmod {{ item }}
+      loop: [proxy, proxy_http]
+      register: a2enmod_result
+      changed_when: "'Enabling module' in a2enmod_result.stdout"
+      failed_when: false
+      notify: restart apache2
+
     - name: start mysql
       ansible.builtin.service:
         name: mysql
@@ -51,7 +63,7 @@
       changed_when: false
       no_log: true
 
-    - name: check zabbix db mandatory version 
+    - name: check zabbix db mandatory version
       ansible.builtin.shell: |
         mysql -uzabbix -p'{{ zabbix_db_password }}' -N -B \
           -e "SELECT mandatory FROM zabbix.dbversion LIMIT 1;"
@@ -66,7 +78,7 @@
         mysql -e "GRANT ALL ON zabbix.* TO 'zabbix'@'localhost'; FLUSH PRIVILEGES;"
       changed_when: true
       no_log: true
-      when: db_version.stdout | trim != '7040000'
+      when: db_version.stdout is defined and db_version.stdout | trim != '7040000' and db_version.rc == 0
 
     - name: check if zabbix schema is imported
       ansible.builtin.shell: |
@@ -105,11 +117,6 @@
         owner: zabbix
         group: zabbix
         mode: "0750"
-
-    - name: check if CA certificate already exists
-      ansible.builtin.stat:
-        path: "{{ tls_dir }}/ca.crt"
-      register: ca_cert_stat
 
     - name: generate CA private key
       ansible.builtin.command:
@@ -153,28 +160,6 @@
           -sha256
         creates: "{{ tls_dir }}/server.crt"
 
-    - name: set permissions on private keys
-      ansible.builtin.file:
-        path: "{{ item }}"
-        owner: zabbix
-        group: zabbix
-        mode: "0600"
-      loop:
-        - "{{ tls_dir }}/ca.key"
-        - "{{ tls_dir }}/server.key"
-        - "{{ tls_dir }}/agent.key"
-
-    - name: set permissions on certificates
-      ansible.builtin.file:
-        path: "{{ item }}"
-        owner: zabbix
-        group: zabbix
-        mode: "0644"
-      loop:
-        - "{{ tls_dir }}/ca.crt"
-        - "{{ tls_dir }}/server.crt"
-        - "{{ tls_dir }}/agent.crt"
-        
     - name: generate agent private key
       ansible.builtin.command:
         cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
@@ -188,7 +173,7 @@
           -out "{{ tls_dir }}/agent.csr"
           -subj "{{ tls_agent_subject }}"
         creates: "{{ tls_dir }}/agent.csr"
-  
+
     - name: sign agent certificate with CA
       ansible.builtin.command:
         cmd: >-
@@ -251,7 +236,7 @@
           $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
       no_log: true
 
-    - name: point apache to new frontend path 
+    - name: point apache to new frontend path
       ansible.builtin.shell: |
         CONF=/etc/apache2/conf-available/zabbix.conf
         if grep -qP '/usr/share/zabbix(?!/ui)' "$CONF"; then
@@ -347,6 +332,18 @@
           changed_when: false
           failed_when: false
 
-      handlers:
-        - name: restart apache2
-          ansible
+  handlers:
+    - name: restart apache2
+      ansible.builtin.service:
+        name: apache2
+        state: restarted
+
+    - name: restart zabbix-server
+      ansible.builtin.service:
+        name: zabbix-server
+        state: restarted
+
+    - name: restart zabbix-agent
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: restarted
