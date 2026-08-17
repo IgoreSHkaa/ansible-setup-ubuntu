@@ -114,17 +114,18 @@
       ansible.builtin.file:
         path: "{{ tls_dir }}"
         state: directory
-        owner: zabbix
+        owner: root
         group: zabbix
         mode: "0750"
 
     - name: generate CA private key
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/ca.key" 4096
         creates: "{{ tls_dir }}/ca.key"
+      register: ca_key_result
 
     - name: generate CA certificate
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: >-
           openssl req -x509 -new -nodes
           -key "{{ tls_dir }}/ca.key"
@@ -133,13 +134,19 @@
           -subj "{{ tls_ca_subject }}"
         creates: "{{ tls_dir }}/ca.crt"
 
+    - name: verify CA key was created
+      ansible.builtin.stat:
+        path: "{{ tls_dir }}/ca.key"
+      register: ca_key_stat
+      failed_when: not ca_key_stat.stat.exists
+      
     - name: generate server private key
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/server.key" 4096
         creates: "{{ tls_dir }}/server.key"
 
     - name: generate server CSR
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: >-
           openssl req -new
           -key "{{ tls_dir }}/server.key"
@@ -148,7 +155,7 @@
         creates: "{{ tls_dir }}/server.csr"
 
     - name: sign server certificate with CA
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: >-
           openssl x509 -req
           -in "{{ tls_dir }}/server.csr"
@@ -161,12 +168,12 @@
         creates: "{{ tls_dir }}/server.crt"
 
     - name: generate agent private key
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
         creates: "{{ tls_dir }}/agent.key"
 
     - name: generate agent CSR
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: >-
           openssl req -new
           -key "{{ tls_dir }}/agent.key"
@@ -175,7 +182,7 @@
         creates: "{{ tls_dir }}/agent.csr"
 
     - name: sign agent certificate with CA
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: >-
           openssl x509 -req
           -in "{{ tls_dir }}/agent.csr"
