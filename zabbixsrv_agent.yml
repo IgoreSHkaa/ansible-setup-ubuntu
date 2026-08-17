@@ -13,7 +13,7 @@
     tls_cert_days: 3650
 
   tasks:
-    #Repo & package------------------------------------------------------------------
+#Repo & package------------------------------------------------------------------
     - name: add zabbix repo
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu26.04_all.deb
@@ -48,7 +48,7 @@
       failed_when: false
       notify: restart apache2
 
-    #DB---------------------------------------------------------------------------------
+#DB---------------------------------------------------------------------------------
     - name: start mysql
       ansible.builtin.service:
         name: mysql
@@ -112,7 +112,7 @@
         executable: /bin/bash
       when: schema_check.stdout | trim != '1'
 
-    #TLS: CA-------------------------------------------------------------------
+#TLS: CA-------------------------------------------------------------------
     - name: create tls directory
       ansible.builtin.file:
         path: "{{ tls_dir }}"
@@ -136,7 +136,7 @@
           -subj "{{ tls_ca_subject }}"
         creates: "{{ tls_dir }}/ca.crt"
 
-    #TLS: server------------------------------------------------------------------------
+#TLS: server------------------------------------------------------------------------
     - name: generate server private key
       ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/server.key" 4096
@@ -164,7 +164,7 @@
           -sha256
         creates: "{{ tls_dir }}/server.crt"
 
-    #TLS: agent--------------------------------------------------------------------
+#TLS: agent--------------------------------------------------------------------
     - name: generate agent private key
       ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
@@ -192,7 +192,7 @@
           -sha256
         creates: "{{ tls_dir }}/agent.crt"
 
-    #TLS: permissions-------------------------------------------------------
+#TLS: permissions-------------------------------------------------------
     - name: set permissions on private keys
       ansible.builtin.file:
         path: "{{ item }}"
@@ -215,7 +215,7 @@
         - "{{ tls_dir }}/server.crt"
         - "{{ tls_dir }}/agent.crt"
 
-    #Frontend---------------------------------------------------------------------
+#Frontend---------------------------------------------------------------------
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
         dest: /etc/zabbix/web/zabbix.conf.php
@@ -255,7 +255,7 @@
       changed_when: "'changed' in apache_path_update.stdout"
       notify: restart apache2
 
-    #Server config--------------------------------------------------------------------
+#Server config--------------------------------------------------------------------
     - name: set zabbix DBName
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
@@ -285,7 +285,7 @@
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/server.key' }
       notify: restart zabbix-server
 
-    #Agent config---------------------------------------------------------------------------
+#Agent config---------------------------------------------------------------------------
     - name: zabbix agent config with TLS certificates
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_agentd.conf
@@ -307,7 +307,7 @@
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/agent.key' }
       notify: restart zabbix-agent
 
-    #Start services-----------------------------------------------------------------
+#Start services-----------------------------------------------------------------
     - name: start and verify services
       block:
         - name: start zabbix-server
