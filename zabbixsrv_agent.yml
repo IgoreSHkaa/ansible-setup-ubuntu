@@ -1,5 +1,5 @@
 ---
-- name: zabbix server + agent + fail2ban
+- name: zabbix server + agent
   hosts: all
   become: true
 
@@ -20,7 +20,6 @@
           - zabbix-apache-conf
           - zabbix-sql-scripts
           - zabbix-agent
-          - fail2ban
           - openssl
           - apache2
           - libapache2-mod-php
@@ -241,27 +240,6 @@
       changed_when: "'changed' in apache_path_update.stdout"
       notify: restart apache2
 
-    - name: fail2ban config
-      ansible.builtin.copy:
-        dest: /etc/fail2ban/jail.local
-        content: |
-          [DEFAULT]
-          bantime = 1h
-          findtime = 10m
-          maxretry = 5
-          backend = auto
-          banaction = iptables-multiport
-          [sshd]
-          enabled = true
-          port = ssh
-          filter = sshd
-          logpath = /var/log/auth.log
-          backend = polling
-          maxretry = 5
-          bantime = 1h
-          findtime = 10m
-      notify: restart f2b
-
     - name: set zabbix DBName
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
@@ -326,7 +304,7 @@
             name: "{{ item }}"
             state: started
             enabled: true
-          loop: [zabbix-agent, apache2, fail2ban]
+          loop: [zabbix-agent, apache2]
 
         - name: wait for zabbix-server to become active
           ansible.builtin.command: systemctl is-active zabbix-server
@@ -345,12 +323,6 @@
           register: zbx_debug_log
           changed_when: false
           failed_when: false
-
-  handlers:
-    - name: restart f2b
-      ansible.builtin.service:
-        name: fail2ban
-        state: restarted
 
     - name: restart apache2
       ansible.builtin.service:
