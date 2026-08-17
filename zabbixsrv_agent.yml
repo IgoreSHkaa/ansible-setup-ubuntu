@@ -2,6 +2,8 @@
 - name: zabbix server + agent
   hosts: all
   become: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
 
   vars:
     tls_dir: /etc/zabbix/ssl
