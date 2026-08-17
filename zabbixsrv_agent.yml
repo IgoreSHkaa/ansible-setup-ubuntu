@@ -13,6 +13,7 @@
     tls_cert_days: 3650
 
   tasks:
+    #Repo & package------------------------------------------------------------------
     - name: add zabbix repo
       ansible.builtin.apt:
         deb: https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu26.04_all.deb
@@ -47,6 +48,7 @@
       failed_when: false
       notify: restart apache2
 
+    #DB---------------------------------------------------------------------------------
     - name: start mysql
       ansible.builtin.service:
         name: mysql
@@ -110,11 +112,12 @@
         executable: /bin/bash
       when: schema_check.stdout | trim != '1'
 
+    #TLS: CA-------------------------------------------------------------------
     - name: create tls directory
       ansible.builtin.file:
         path: "{{ tls_dir }}"
         state: directory
-        owner: root
+        owner: zabbix
         group: zabbix
         mode: "0750"
 
@@ -122,39 +125,18 @@
       ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/ca.key" 4096
         creates: "{{ tls_dir }}/ca.key"
-      register: ca_key_result
 
-    - name: generate CA private key (with diagnostics)
-      ansible.builtin.shell: |
-        set -e
-        echo "=== Starting CA key generation ==="
-        echo "Current directory: $(pwd)"
-        echo "TLS dir: {{ tls_dir }}"
-        echo "Checking if file exists: $(ls -la {{ tls_dir }}/ca.key 2>&1 || echo 'not found')"
-        echo "Disk space:"
-        df -h {{ tls_dir }}
-        echo "Entropy available:"
-        cat /proc/sys/kernel/random/entropy_avail 2>/dev/null || echo "N/A"
-        echo "=== Running openssl ==="
-        openssl genrsa -out "{{ tls_dir }}/ca.key" 4096 2>&1
-        echo "=== openssl exit code: $? ==="
-        echo "=== Checking result ==="
-        ls -la {{ tls_dir }}/ca.key
-      args:
-        creates: "{{ tls_dir }}/ca.key"
-      register: ca_key_result
-      failed_when: ca_key_result.rc != 0
+    - name: generate CA certificate
+      ansible.builtin.shell:
+        cmd: >-
+          openssl req -x509 -new -nodes
+          -key "{{ tls_dir }}/ca.key"
+          -sha256 -days {{ tls_cert_days }}
+          -out "{{ tls_dir }}/ca.crt"
+          -subj "{{ tls_ca_subject }}"
+        creates: "{{ tls_dir }}/ca.crt"
 
-    - name: show CA key generation output
-      ansible.builtin.debug:
-        var: ca_key_result
-
-    - name: verify CA key was created
-      ansible.builtin.stat:
-        path: "{{ tls_dir }}/ca.key"
-      register: ca_key_stat
-      failed_when: not ca_key_stat.stat.exists
-      
+    #TLS: server------------------------------------------------------------------------
     - name: generate server private key
       ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/server.key" 4096
@@ -182,6 +164,7 @@
           -sha256
         creates: "{{ tls_dir }}/server.crt"
 
+    #TLS: agent--------------------------------------------------------------------
     - name: generate agent private key
       ansible.builtin.shell:
         cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
@@ -209,6 +192,7 @@
           -sha256
         creates: "{{ tls_dir }}/agent.crt"
 
+    #TLS: permissions-------------------------------------------------------
     - name: set permissions on private keys
       ansible.builtin.file:
         path: "{{ item }}"
@@ -231,6 +215,7 @@
         - "{{ tls_dir }}/server.crt"
         - "{{ tls_dir }}/agent.crt"
 
+    #Frontend---------------------------------------------------------------------
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
         dest: /etc/zabbix/web/zabbix.conf.php
@@ -270,6 +255,7 @@
       changed_when: "'changed' in apache_path_update.stdout"
       notify: restart apache2
 
+    #Server config--------------------------------------------------------------------
     - name: set zabbix DBName
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
@@ -300,6 +286,7 @@
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/server.key' }
       notify: restart zabbix-server
 
+    #Agent config---------------------------------------------------------------------------
     - name: zabbix agent config with TLS certificates
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_agentd.conf
@@ -321,6 +308,7 @@
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/agent.key' }
       notify: restart zabbix-agent
 
+    #Start services-----------------------------------------------------------------
     - name: start and verify services
       block:
         - name: start zabbix-server
