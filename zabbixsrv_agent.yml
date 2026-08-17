@@ -115,7 +115,6 @@
       ansible.builtin.command:
         cmd: openssl genrsa -out "{{ tls_dir }}/ca.key" 4096
         creates: "{{ tls_dir }}/ca.key"
-      when: not ca_cert_stat.stat.exists
 
     - name: generate CA certificate
       ansible.builtin.command:
@@ -202,6 +201,28 @@
           -days {{ tls_cert_days }}
           -sha256
         creates: "{{ tls_dir }}/agent.crt"
+
+    - name: set permissions on private keys
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0600"
+      loop:
+        - "{{ tls_dir }}/ca.key"
+        - "{{ tls_dir }}/server.key"
+        - "{{ tls_dir }}/agent.key"
+
+    - name: set permissions on certificates
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: zabbix
+        group: zabbix
+        mode: "0644"
+      loop:
+        - "{{ tls_dir }}/ca.crt"
+        - "{{ tls_dir }}/server.crt"
+        - "{{ tls_dir }}/agent.crt"
 
     - name: preseed zabbix frontend config
       ansible.builtin.copy:
@@ -326,17 +347,6 @@
           changed_when: false
           failed_when: false
 
-    - name: restart apache2
-      ansible.builtin.service:
-        name: apache2
-        state: restarted
-
-    - name: restart zabbix-server
-      ansible.builtin.service:
-        name: zabbix-server
-        state: restarted
-
-    - name: restart zabbix-agent
-      ansible.builtin.service:
-        name: zabbix-agent
-        state: restarted
+      handlers:
+        - name: restart apache2
+          ansible
