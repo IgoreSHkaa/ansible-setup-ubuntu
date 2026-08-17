@@ -277,10 +277,9 @@
     - name: configure zabbix server TLS settings
       ansible.builtin.lineinfile:
         path: /etc/zabbix/zabbix_server.conf
-        regexp: '^{{ item.key }}='
+        regexp: '^#?\s*{{ item.key }}='
         line: '{{ item.key }}={{ item.value }}'
       loop:
-        - { key: 'TLSAccept', value: 'cert' }
         - { key: 'TLSCAFile', value: '{{ tls_dir }}/ca.crt' }
         - { key: 'TLSCertFile', value: '{{ tls_dir }}/server.crt' }
         - { key: 'TLSKeyFile', value: '{{ tls_dir }}/server.key' }
