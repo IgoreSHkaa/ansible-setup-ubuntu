@@ -29,14 +29,14 @@
           - zabbix-agent
           - openssl
           - apache2
-          - libapache2-mod-php
-          - php-mysql
-          - php-mbstring
-          - php-bcmath
-          - php-xml
-          - php-gd
-          - php-ldap
-          - php-curl
+          - php8.5-fpm
+          - php8.5-mysql
+          - php8.5-mbstring
+          - php8.5-bcmath
+          - php8.5-xml
+          - php8.5-gd
+          - php8.5-ldap
+          - php8.5-curl
         state: latest
         update_cache: true
 
