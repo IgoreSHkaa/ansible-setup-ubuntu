@@ -124,15 +124,30 @@
         creates: "{{ tls_dir }}/ca.key"
       register: ca_key_result
 
-    - name: generate CA certificate
-      ansible.builtin.shell:
-        cmd: >-
-          openssl req -x509 -new -nodes
-          -key "{{ tls_dir }}/ca.key"
-          -sha256 -days {{ tls_cert_days }}
-          -out "{{ tls_dir }}/ca.crt"
-          -subj "{{ tls_ca_subject }}"
-        creates: "{{ tls_dir }}/ca.crt"
+        - name: generate CA private key (with diagnostics)
+      ansible.builtin.shell: |
+        set -e
+        echo "=== Starting CA key generation ==="
+        echo "Current directory: $(pwd)"
+        echo "TLS dir: {{ tls_dir }}"
+        echo "Checking if file exists: $(ls -la {{ tls_dir }}/ca.key 2>&1 || echo 'not found')"
+        echo "Disk space:"
+        df -h {{ tls_dir }}
+        echo "Entropy available:"
+        cat /proc/sys/kernel/random/entropy_avail 2>/dev/null || echo "N/A"
+        echo "=== Running openssl ==="
+        openssl genrsa -out "{{ tls_dir }}/ca.key" 4096 2>&1
+        echo "=== openssl exit code: $? ==="
+        echo "=== Checking result ==="
+        ls -la {{ tls_dir }}/ca.key
+      args:
+        creates: "{{ tls_dir }}/ca.key"
+      register: ca_key_result
+      failed_when: ca_key_result.rc != 0
+
+    - name: show CA key generation output
+      ansible.builtin.debug:
+        var: ca_key_result
 
     - name: verify CA key was created
       ansible.builtin.stat:
