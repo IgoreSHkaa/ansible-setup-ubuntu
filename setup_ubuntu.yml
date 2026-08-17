@@ -110,7 +110,7 @@
         group: "{{ admin_user }}"
         mode: "0600"
         state: present
-      loop: "{{ ssh_public_keys }}"
+      loop: "{{ ssh_public_keys | default([]) }}"
 
     - name: install oh my zsh
       ansible.builtin.git:
@@ -193,7 +193,7 @@
         name: ssh
         state: restarted
 
-    - name: Restart f2b
+    - name: restart f2b
       ansible.builtin.service:
         name: fail2ban
         state: restarted
