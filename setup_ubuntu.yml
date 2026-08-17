@@ -30,6 +30,13 @@
         groups: sudo
         append: true
         create_home: true
+      register: user_creation
+
+    - name: verify admin user exists
+      ansible.builtin.command: id {{ admin_user }}
+      register: user_check
+      changed_when: false
+      failed_when: user_check.rc != 0
 
     - name: allow passwordless sudo
       ansible.builtin.copy:
