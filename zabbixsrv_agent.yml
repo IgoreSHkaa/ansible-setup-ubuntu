@@ -40,6 +40,14 @@
         state: latest
         update_cache: true
 
+    - name: enable php modules for fpm
+      ansible.builtin.command: phpenmod -v 8.5 -s fpm {{ item }}
+      loop: [mysql, mysqli, pdo_mysql, mbstring, bcmath, xml, gd, ldap, curl]
+      register: phpenmod_result
+      changed_when: "'already enabled' not in phpenmod_result.stderr"
+      failed_when: false
+      notify: restart php-fpm
+
     - name: switch apache to PHP-FPM
       ansible.builtin.shell: |
         a2dismod mpm_event mpm_worker php8.5 2>/dev/null || true
