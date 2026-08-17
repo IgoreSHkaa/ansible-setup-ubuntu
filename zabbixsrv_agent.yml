@@ -37,8 +37,9 @@
           - php8.5-gd
           - php8.5-ldap
           - php8.5-curl
-        state: latest
+        state: present
         update_cache: true
+        cache_valid_time: 3600
 
     - name: enable php modules for fpm
       ansible.builtin.command: phpenmod -v 8.5 -s fpm {{ item }}
@@ -122,7 +123,7 @@
     - name: import zabbix schema
       ansible.builtin.shell: |
         set -o pipefail
-        zcat "{{ zabbix_schema_file }}" | \
+        zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | \
         mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix
       args:
         executable: /bin/bash
@@ -152,61 +153,40 @@
           -subj "{{ tls_ca_subject }}"
         creates: "{{ tls_dir }}/ca.crt"
 
-#TLS: server------------------------------------------------------------------------
-    - name: generate server private key
-      ansible.builtin.shell:
-        cmd: openssl genrsa -out "{{ tls_dir }}/server.key" 4096
-        creates: "{{ tls_dir }}/server.key"
+#TLS_____------------------------------------------------------------------------
+    - name: generate component keys and certificates
+      block:
+        - name: generate private keys
+          ansible.builtin.shell:
+            cmd: "openssl genrsa -out '{{ tls_dir }}/{{ item }}.key' 4096"
+            creates: "{{ tls_dir }}/{{ item }}.key"
+          loop: [server, agent]
 
-    - name: generate server CSR
-      ansible.builtin.shell:
-        cmd: >-
-          openssl req -new
-          -key "{{ tls_dir }}/server.key"
-          -out "{{ tls_dir }}/server.csr"
-          -subj "{{ tls_server_subject }}"
-        creates: "{{ tls_dir }}/server.csr"
+        - name: generate CSRs
+          ansible.builtin.shell:
+            cmd: >-
+              openssl req -new
+              -key "{{ tls_dir }}/{{ item.name }}.key"
+              -out "{{ tls_dir }}/{{ item.name }}.csr"
+              -subj "{{ item.subject }}"
+            creates: "{{ tls_dir }}/{{ item.name }}.csr"
+          loop:
+            - { name: server, subject: "{{ tls_server_subject }}" }
+            - { name: agent, subject: "{{ tls_agent_subject }}" }
 
-    - name: sign server certificate with CA
-      ansible.builtin.shell:
-        cmd: >-
-          openssl x509 -req
-          -in "{{ tls_dir }}/server.csr"
-          -CA "{{ tls_dir }}/ca.crt"
-          -CAkey "{{ tls_dir }}/ca.key"
-          -CAcreateserial
-          -out "{{ tls_dir }}/server.crt"
-          -days {{ tls_cert_days }}
-          -sha256
-        creates: "{{ tls_dir }}/server.crt"
-
-#TLS: agent--------------------------------------------------------------------
-    - name: generate agent private key
-      ansible.builtin.shell:
-        cmd: openssl genrsa -out "{{ tls_dir }}/agent.key" 4096
-        creates: "{{ tls_dir }}/agent.key"
-
-    - name: generate agent CSR
-      ansible.builtin.shell:
-        cmd: >-
-          openssl req -new
-          -key "{{ tls_dir }}/agent.key"
-          -out "{{ tls_dir }}/agent.csr"
-          -subj "{{ tls_agent_subject }}"
-        creates: "{{ tls_dir }}/agent.csr"
-
-    - name: sign agent certificate with CA
-      ansible.builtin.shell:
-        cmd: >-
-          openssl x509 -req
-          -in "{{ tls_dir }}/agent.csr"
-          -CA "{{ tls_dir }}/ca.crt"
-          -CAkey "{{ tls_dir }}/ca.key"
-          -CAcreateserial
-          -out "{{ tls_dir }}/agent.crt"
-          -days {{ tls_cert_days }}
-          -sha256
-        creates: "{{ tls_dir }}/agent.crt"
+        - name: sign certificates with CA
+          ansible.builtin.shell:
+            cmd: >-
+              openssl x509 -req
+              -in "{{ tls_dir }}/{{ item }}.csr"
+              -CA "{{ tls_dir }}/ca.crt"
+              -CAkey "{{ tls_dir }}/ca.key"
+              -CAcreateserial
+              -out "{{ tls_dir }}/{{ item }}.crt"
+              -days {{ tls_cert_days }}
+              -sha256
+            creates: "{{ tls_dir }}/{{ item }}.crt"
+          loop: [server, agent]
 
 #TLS: permissions-------------------------------------------------------
     - name: set permissions on private keys
@@ -260,15 +240,10 @@
       no_log: true
 
     - name: point apache to new frontend path
-      ansible.builtin.shell: |
-        CONF=/etc/apache2/conf-available/zabbix.conf
-        if grep -qP '/usr/share/zabbix(?!/ui)' "$CONF"; then
-          sed -i -e 's|/usr/share/zabbix/ui|/usr/share/zabbix|g' \
-                 -e 's|/usr/share/zabbix|/usr/share/zabbix/ui|g' "$CONF"
-          echo changed
-        fi
-      register: apache_path_update
-      changed_when: "'changed' in apache_path_update.stdout"
+      ansible.builtin.replace:
+        path: /etc/apache2/conf-available/zabbix.conf
+        regexp: '/usr/share/zabbix(?!/ui)'
+        replace: '/usr/share/zabbix/ui'
       notify: restart apache2
 
 #Server config--------------------------------------------------------------------
