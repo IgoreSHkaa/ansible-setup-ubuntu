@@ -367,3 +367,8 @@
       ansible.builtin.service:
         name: zabbix-agent
         state: restarted
+
+    - name: restart php-fpm
+      ansible.builtin.service:
+        name: php8.5-fpm
+        state: restarted
