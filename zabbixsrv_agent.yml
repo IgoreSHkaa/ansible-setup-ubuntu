@@ -124,7 +124,7 @@
         creates: "{{ tls_dir }}/ca.key"
       register: ca_key_result
 
-        - name: generate CA private key (with diagnostics)
+    - name: generate CA private key (with diagnostics)
       ansible.builtin.shell: |
         set -e
         echo "=== Starting CA key generation ==="
