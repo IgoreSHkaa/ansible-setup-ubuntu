@@ -295,24 +295,19 @@
 
 #Agent config---------------------------------------------------------------------------
     - name: zabbix agent config with TLS certificates
-      ansible.builtin.lineinfile:
+      ansible.builtin.replace:
         path: /etc/zabbix/zabbix_agentd.conf
-        regexp: '^{{ item.key }}='
-        line: '{{ item.key }}={{ item.value }}'
+        regexp: '{{ item.regexp }}'
+        replace: '{{ item.replace }}'
       loop:
-        - { key: 'Server', value: '{{ zabbix_server_ip | default("127.0.0.1") }}' }
-        - { key: 'ServerActive', value: '{{ zabbix_server_ip | default("127.0.0.1") }}' }
-        - { key: 'Hostname', value: '{{ ansible_facts["hostname"] }}' }
-        - { key: 'HostMetadataItem', value: 'system.uname' }
-        - { key: 'HostMetadata', value: 'ubuntu_zabbix_agent' }
-        - { key: 'RefreshActiveChecks', value: '120' }
-        - { key: 'BufferSend', value: '5' }
-        - { key: 'BufferSize', value: '100' }
-        - { key: 'TLSConnect', value: 'cert' }
-        - { key: 'TLSAccept', value: 'cert' }
-        - { key: 'TLSCAFile', value: '{{ tls_dir }}/ca.crt' }
-        - { key: 'TLSCertFile', value: '{{ tls_dir }}/agent.crt' }
-        - { key: 'TLSKeyFile', value: '{{ tls_dir }}/agent.key' }
+        - { regexp: '^#\s*Server=.*',         replace: 'Server={{ zabbix_server_ip | default("127.0.0.1") }}' }
+        - { regexp: '^#\s*ServerActive=.*',   replace: 'ServerActive={{ zabbix_server_ip | default("127.0.0.1") }}' }
+        - { regexp: '^#\s*Hostname=.*',       replace: 'Hostname={{ ansible_facts["hostname"] }}' }
+        - { regexp: '^#\s*TLSConnect=.*',     replace: 'TLSConnect=cert' }
+        - { regexp: '^#\s*TLSAccept=.*',      replace: 'TLSAccept=cert' }
+        - { regexp: '^#\s*TLSCAFile=.*',      replace: 'TLSCAFile={{ tls_dir }}/ca.crt' }
+        - { regexp: '^#\s*TLSCertFile=.*',    replace: 'TLSCertFile={{ tls_dir }}/agent.crt' }
+        - { regexp: '^#\s*TLSKeyFile=.*',     replace: 'TLSKeyFile={{ tls_dir }}/agent.key' }
       notify: restart zabbix-agent
 
 #Start services-----------------------------------------------------------------
