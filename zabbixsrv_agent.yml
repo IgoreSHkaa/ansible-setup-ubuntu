@@ -109,7 +109,7 @@
       no_log: true
       when: db_version.stdout is defined and db_version.stdout | trim != '7040000' and db_version.rc == 0
 
-        - name: check if zabbix schema is imported
+    - name: check if zabbix schema is imported
       ansible.builtin.shell: |
         mysql -uzabbix -p'{{ zabbix_db_password }}' -N -B \
           -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='zabbix' AND table_name='dbversion';"
