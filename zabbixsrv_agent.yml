@@ -328,7 +328,7 @@
           failed_when: false
 
 #Login zabbix with TLS-----------------------------------------------------------------
-- name: Login to Zabbix API to get temporary token
+    - name: Login to Zabbix API to get temporary token
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
         method: POST
