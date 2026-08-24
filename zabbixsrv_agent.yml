@@ -13,7 +13,7 @@
     tls_cert_days: 3650
 
   tasks:
-    - name: Remove existing zabbix-release package to avoid version conflicts
+    - name: Remove existing zabbix-release pacфkage to avoid version conflicts
       ansible.builtin.apt:
         name: zabbix-release
         state: absent
@@ -130,19 +130,35 @@
         zabbix_schema_file: "{{ zabbix_sql_script.files | map(attribute='path') | select('search', '/mysql/') | list | first }}"
       when: schema_check.stdout | trim != '1'
 
+    - name: debug schema file path
+      ansible.builtin.debug:
+        msg: "Found schema file: {{ zabbix_schema_file | default('NOT FOUND') }}"
+      when: schema_check.stdout | trim != '1'
+
+    - name: verify schema file exists
+      ansible.builtin.stat:
+        path: "{{ zabbix_schema_file }}"
+      register: schema_file_stat
+      when: schema_check.stdout | trim != '1' and zabbix_schema_file is defined
+
     - name: import zabbix schema
       ansible.builtin.shell: |
         set -o pipefail
         if [[ "{{ zabbix_schema_file }}" == *.gz ]]; then
           zcat "{{ zabbix_schema_file }}" | mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix
         else
-          cat "{{ zabbix_schema_file }}" | mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix
+          mysql --default-character-set=utf8mb4 -uzabbix -p'{{ zabbix_db_password }}' zabbix < "{{ zabbix_schema_file }}"
         fi
       args:
         executable: /bin/bash
-      when: schema_check.stdout | trim != '1' and zabbix_schema_file is defined
+      when: 
+        - schema_check.stdout | trim != '1'
+        - zabbix_schema_file is defined
+        - schema_file_stat.stat.exists | default(false)
       no_log: true
-
+      async: 300
+      poll: 10
+      
     # TLS: CA-------------------------------------------------------------------
     - name: create tls directory
       ansible.builtin.file:
