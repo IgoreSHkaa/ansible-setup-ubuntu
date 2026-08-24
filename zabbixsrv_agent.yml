@@ -13,7 +13,7 @@
     tls_cert_days: 3650
 
   tasks:
-    - name: Remove existing zabbix-release pacфkage to avoid version conflicts
+    - name: Remove existing zabbix-release package to avoid version conflicts
       ansible.builtin.apt:
         name: zabbix-release
         state: absent
