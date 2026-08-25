@@ -372,6 +372,11 @@
       become: false
       run_once: true
 
+    - name: Check Zabbix login success and fail with exact error if needed
+      ansible.builtin.fail:
+        msg: "Zabbix API login failed! Exact response from Zabbix: {{ zabbix_login.json }}"
+      when: zabbix_login.json.result is not defined
+
     - name: Create Host in Zabbix with TLS Certificate encryption enabled
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
