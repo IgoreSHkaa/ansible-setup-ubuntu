@@ -384,7 +384,7 @@
           method: "host.get"
           params:
             filter:
-              ip: "16.171.65.39" 
+              ip: "{{ ansible_host }} 
             selectInterfaces: true
             output:
               - hostid
