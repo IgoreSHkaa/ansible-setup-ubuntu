@@ -371,7 +371,6 @@
       register: zabbix_login
       become: false
       run_once: true
-      no_log: true
 
     - name: Create Host in Zabbix with TLS Certificate encryption enabled
       ansible.builtin.uri:
