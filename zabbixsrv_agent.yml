@@ -371,7 +371,7 @@
       register: zabbix_login
       become: false
       run_once: true
-      
+
     - name: Get Zabbix Host ID
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
@@ -385,20 +385,18 @@
           params:
             filter:
               host: "{{ ansible_facts['hostname'] }}"
-            selectInterfaces: true
             output:
               - hostid
               - host
           auth: "{{ zabbix_login.json.result }}"
-          id: 3
+          id: 2
       register: zabbix_host_get
       become: false
       run_once: true
 
-    - name: Show Host ID
+    - name: Debug Host Get Response (Покажет, нашел ли API хост)
       ansible.builtin.debug:
-        msg: "Found host ID: {{ zabbix_host_get.json.result[0].hostid | default('NOT FOUND') }}"
-      when: zabbix_host_get.json.result is defined and zabbix_host_get.json.result | length > 0
+        msg: "API вернул: {{ zabbix_host_get.json | default('Нет ответа') }}"
 
     - name: Update Host with TLS Certificate Encryption
       ansible.builtin.uri:
@@ -417,7 +415,7 @@
             tls_issuer: "Zabbix CA"
             tls_subject: "Zabbix Agent"
           auth: "{{ zabbix_login.json.result }}"
-          id: 4
+          id: 3
       register: zabbix_host_update
       become: false
       run_once: true
@@ -425,8 +423,8 @@
 
     - name: Show Update Result
       ansible.builtin.debug:
-        msg: "TLS Update Response: {{ zabbix_host_update.json }}"
-      when: zabbix_host_update is defined
+        msg: "TLS Update Response: {{ zabbix_host_update.json | default('Задача была пропущена или нет JSON ответа') }}"
+      when: zabbix_host_update is defined and zabbix_host_update.json is defined
 
   handlers:
     - name: restart apache2
