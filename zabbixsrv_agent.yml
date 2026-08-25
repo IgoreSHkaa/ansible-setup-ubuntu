@@ -372,7 +372,7 @@
       become: false
       run_once: true
 
-    - name: Get Zabbix Host ID by IP (from ansible_host)
+    - name: Get Zabbix Host ID
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
         method: POST
@@ -384,11 +384,10 @@
           method: "host.get"
           params:
             filter:
-              ip: "{{ ansible_host }}"
+              name: "Zabbix server"
             output:
               - hostid
               - host
-              - interfaces
           auth: "{{ zabbix_login.json.result }}"
           id: 2
       register: zabbix_host_get
