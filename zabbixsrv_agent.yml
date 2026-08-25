@@ -354,10 +354,6 @@
 
     #Login to Zabbix with TLS-----------------------------------------------------------------
     
-      # =========================================================================
-    # Login to Zabbix and Update Host with TLS Encryption (Zabbix 7.4 compatible)
-    # =========================================================================
-    
     - name: Login to Zabbix API to get temporary token
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
@@ -397,9 +393,9 @@
       become: false
       run_once: true
 
-    - name: Show ALL Hosts API Response
+    - name: Show ALL Hosts API Response (Safe debug)
       ansible.builtin.debug:
-        msg: "All hosts: {{ all_hosts.json.result | default('ERROR: ' + all_hosts.json.error.data) }}"
+        msg: "API Response: {{ all_hosts.json }}"
 
     - name: Get Zabbix Host by NAME
       ansible.builtin.uri:
@@ -425,7 +421,7 @@
 
     - name: Debug Search Result
       ansible.builtin.debug:
-        msg: "Found host: {{ zabbix_host_get.json.result[0] | default('NOT FOUND') }}"
+        msg: "Search result: {{ zabbix_host_get.json }}"
 
     - name: Update Host with TLS Certificate Encryption
       ansible.builtin.uri:
@@ -452,9 +448,9 @@
 
     - name: Show TLS Update Result
       ansible.builtin.debug:
-        msg: "TLS Encryption enabled successfully"
-      when: zabbix_host_update is defined and zabbix_host_update.json.result is defined
-    
+        msg: "TLS Update Response: {{ zabbix_host_update.json | default('Skipped') }}"
+      when: zabbix_host_update is defined  
+      
   handlers:
     - name: restart apache2
       ansible.builtin.service:
