@@ -372,6 +372,10 @@
       become: false
       run_once: true
 
+    - name: Debug Login Response
+      ansible.builtin.debug:
+        msg: "Login response: {{ zabbix_login.json }}"
+
     - name: Get ALL Hosts from Zabbix (for debugging)
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
@@ -387,15 +391,15 @@
               - hostid
               - host
               - name
-          auth: "{{ zabbix_login.json.result }}"
+          auth: "{{ zabbix_login.json.result | default('NO_TOKEN') }}"
           id: 2
       register: all_hosts
       become: false
       run_once: true
 
-    - name: Show ALL Hosts in Zabbix
+    - name: Show ALL Hosts API Response
       ansible.builtin.debug:
-        msg: "All hosts: {{ all_hosts.json.result | map(attribute='host') | list }}"
+        msg: "All hosts API response: {{ all_hosts.json }}"
 
     - name: Get Zabbix Host by NAME
       ansible.builtin.uri:
@@ -413,7 +417,7 @@
             output:
               - hostid
               - host
-          auth: "{{ zabbix_login.json.result }}"
+          auth: "{{ zabbix_login.json.result | default('NO_TOKEN') }}"
           id: 3
       register: zabbix_host_get
       become: false
@@ -421,7 +425,7 @@
 
     - name: Debug Search Result
       ansible.builtin.debug:
-        msg: "Search for 'Zabbix server' returned: {{ zabbix_host_get.json.result }}"
+        msg: "Search for 'Zabbix server' returned: {{ zabbix_host_get.json }}"
 
     - name: Update Host with TLS Certificate Encryption
       ansible.builtin.uri:
@@ -434,18 +438,22 @@
           jsonrpc: "2.0"
           method: "host.update"
           params:
-            hostid: "{{ zabbix_host_get.json.result[0].hostid }}"
+            hostid: "{{ zabbix_host_get.json.result[0].hostid | default('') }}"
             tls_connect: 4
             tls_accept: 4
             tls_issuer: "Zabbix CA"
             tls_subject: "Zabbix Agent"
-          auth: "{{ zabbix_login.json.result }}"
+          auth: "{{ zabbix_login.json.result | default('NO_TOKEN') }}"
           id: 4
       register: zabbix_host_update
       become: false
       run_once: true
       when: zabbix_host_get.json.result is defined and zabbix_host_get.json.result | length > 0
 
+    - name: Show TLS Update Result
+      ansible.builtin.debug:
+        msg: "TLS Update Response: {{ zabbix_host_update.json | default('Skipped') }}"
+      when: zabbix_host_update is defined
   handlers:
     - name: restart apache2
       ansible.builtin.service:
