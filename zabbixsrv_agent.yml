@@ -354,6 +354,10 @@
 
     #Login to Zabbix with TLS-----------------------------------------------------------------
     
+      # =========================================================================
+    # Login to Zabbix and Update Host with TLS Encryption (Zabbix 7.4 compatible)
+    # =========================================================================
+    
     - name: Login to Zabbix API to get temporary token
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
@@ -372,16 +376,13 @@
       become: false
       run_once: true
 
-    - name: Debug Login Response
-      ansible.builtin.debug:
-        msg: "Login response: {{ zabbix_login.json }}"
-
-    - name: Get ALL Hosts from Zabbix (for debugging)
+    - name: Get ALL Hosts from Zabbix (with auth in headers)
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
         method: POST
         headers:
           Content-Type: "application/json-rpc"
+          Authorization: "Bearer {{ zabbix_login.json.result }}"
         body_format: json
         body:
           jsonrpc: "2.0"
@@ -391,7 +392,6 @@
               - hostid
               - host
               - name
-          auth: "{{ zabbix_login.json.result | default('NO_TOKEN') }}"
           id: 2
       register: all_hosts
       become: false
@@ -399,7 +399,7 @@
 
     - name: Show ALL Hosts API Response
       ansible.builtin.debug:
-        msg: "All hosts API response: {{ all_hosts.json }}"
+        msg: "All hosts: {{ all_hosts.json.result | default('ERROR: ' + all_hosts.json.error.data) }}"
 
     - name: Get Zabbix Host by NAME
       ansible.builtin.uri:
@@ -407,6 +407,7 @@
         method: POST
         headers:
           Content-Type: "application/json-rpc"
+          Authorization: "Bearer {{ zabbix_login.json.result }}"
         body_format: json
         body:
           jsonrpc: "2.0"
@@ -417,7 +418,6 @@
             output:
               - hostid
               - host
-          auth: "{{ zabbix_login.json.result | default('NO_TOKEN') }}"
           id: 3
       register: zabbix_host_get
       become: false
@@ -425,7 +425,7 @@
 
     - name: Debug Search Result
       ansible.builtin.debug:
-        msg: "Search for 'Zabbix server' returned: {{ zabbix_host_get.json }}"
+        msg: "Found host: {{ zabbix_host_get.json.result[0] | default('NOT FOUND') }}"
 
     - name: Update Host with TLS Certificate Encryption
       ansible.builtin.uri:
@@ -433,17 +433,17 @@
         method: POST
         headers:
           Content-Type: "application/json-rpc"
+          Authorization: "Bearer {{ zabbix_login.json.result }}"
         body_format: json
         body:
           jsonrpc: "2.0"
           method: "host.update"
           params:
-            hostid: "{{ zabbix_host_get.json.result[0].hostid | default('') }}"
+            hostid: "{{ zabbix_host_get.json.result[0].hostid }}"
             tls_connect: 4
             tls_accept: 4
             tls_issuer: "Zabbix CA"
             tls_subject: "Zabbix Agent"
-          auth: "{{ zabbix_login.json.result | default('NO_TOKEN') }}"
           id: 4
       register: zabbix_host_update
       become: false
@@ -452,8 +452,9 @@
 
     - name: Show TLS Update Result
       ansible.builtin.debug:
-        msg: "TLS Update Response: {{ zabbix_host_update.json | default('Skipped') }}"
-      when: zabbix_host_update is defined
+        msg: "TLS Encryption enabled successfully"
+      when: zabbix_host_update is defined and zabbix_host_update.json.result is defined
+    
   handlers:
     - name: restart apache2
       ansible.builtin.service:
