@@ -352,8 +352,26 @@
           changed_when: false
           failed_when: false
 
-    #Login to Zabbix with TLS=========================================================================
-    
+    #Login to Zabbix with TLS-----------------------------------------------------------------
+
+    - name: Login to Zabbix API to get temporary token
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json-rpc"
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "user.login"
+          params:
+            username: "Admin"
+            password: "{{ zabbix_admin_password | default('zabbix') }}"
+          id: 1
+      register: zabbix_login
+      become: false
+      run_once: true
+      
     - name: Get Zabbix Host ID
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
