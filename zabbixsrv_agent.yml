@@ -352,7 +352,7 @@
           changed_when: false
           failed_when: false
 
-    # =========================================================================
+    #Login to Zabbix with TLS=========================================================================
     
     - name: Login to Zabbix API to get temporary token
       ansible.builtin.uri:
@@ -369,7 +369,7 @@
             password: "{{ zabbix_admin_password | default('zabbix') }}"
           id: 1
       register: zabbix_login
-      delegate_to: 127.0.0.1
+      become: false
       run_once: true
       no_log: true
 
@@ -399,7 +399,7 @@
           auth: "{{ zabbix_login.json.result }}"
           id: 2
       register: zabbix_host_create
-      delegate_to: 127.0.0.1
+      become: false
       run_once: true
       no_log: true
       failed_when: 
