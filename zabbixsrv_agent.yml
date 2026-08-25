@@ -384,10 +384,12 @@
           method: "host.get"
           params:
             filter:
-              host: "{{ ansible_facts['hostname'] }}"
+              ip: "16.171.65.39" 
+            selectInterfaces: true
             output:
               - hostid
               - host
+              - interfaces
           auth: "{{ zabbix_login.json.result }}"
           id: 2
       register: zabbix_host_get
