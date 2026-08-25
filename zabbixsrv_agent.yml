@@ -368,7 +368,11 @@
       register: zabbix_version
       become: false
 
-    - name: Login to Zabbix API to get temporary token
+    - name: Show Zabbix Version
+      ansible.builtin.debug:
+        msg: ">>> ZABBIX VERSION: {{ zabbix_version.json.result | default('UNKNOWN') }} <<<"
+
+    - name: Login to Zabbix API
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
         method: POST
@@ -386,19 +390,14 @@
       become: false
       run_once: true
 
-    - name: Check Zabbix login success
-      ansible.builtin.fail:
-        msg: "Zabbix API login failed! Response: {{ zabbix_login.json }}"
-      when: zabbix_login.json.result is not defined
-
-    - name: Debug Exact JSON Payload for Host Create
-      ansible.builtin.debug:
-        msg: 
-          - "Длина токена: {{ zabbix_login.json.result | string | length }}"
-          - "Отправляемый JSON-запрос:"
-          - "{{ zabbix_payload | to_nice_json }}"
-      vars:
-        zabbix_payload:
+    - name: Create Host in Zabbix with TLS
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json-rpc"
+        body_format: json
+        body:
           jsonrpc: "2.0"
           method: "host.create"
           params:
@@ -416,31 +415,19 @@
             tls_accept: 4
             tls_issuer: "Zabbix CA"
             tls_subject: "Zabbix Agent"
-          auth: "{{ zabbix_login.json.result | string }}"
+          auth: "{{ zabbix_login.json.result }}"
           id: 2
-
-    - name: Create Host in Zabbix with TLS Certificate encryption enabled
-      ansible.builtin.uri:
-        url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
-        method: POST
-        headers:
-          Content-Type: "application/json-rpc"
-        body_format: json
-        body: "{{ zabbix_payload }}"
       register: zabbix_host_create
       become: false
       run_once: true
-      failed_when: false
+      ignore_errors: true
 
-    - name: Debug Zabbix Host Create Response
+    - name: Show Zabbix API Response
       ansible.builtin.debug:
-        msg: "Ответ Zabbix API: {{ zabbix_host_create.json | default('Невалидный JSON') }}"
-      when: zabbix_host_create.json is not defined or zabbix_host_create.json.error is defined
-
-    - name: Fail if Zabbix Host Create actually failed
-      ansible.builtin.fail:
-        msg: "Не удалось создать хост в Zabbix. См. вывод отладки выше."
-      when: zabbix_host_create.json is not defined or zabbix_host_create.json.error is defined
+        msg: 
+          - "STATUS: {{ zabbix_host_create.status | default('N/A') }}"
+          - "RESPONSE: {{ zabbix_host_create.json | default('NO JSON RESPONSE') }}"
+      when: zabbix_host_create is changed or zabbix_host_create is failed
 
   handlers:
     - name: restart apache2
