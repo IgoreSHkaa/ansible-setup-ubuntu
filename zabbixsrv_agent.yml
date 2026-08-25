@@ -405,10 +405,21 @@
       register: zabbix_host_create
       become: false
       run_once: true
-      no_log: true
-      failed_when: 
-        - zabbix_host_create.json.error is defined 
-        - zabbix_host_create.json.error.code != -32602
+      failed_when: false
+
+    - name: Debug Zabbix Host Create Response (Покажет реальную причину ошибки)
+      ansible.builtin.debug:
+        msg: |
+          Zabbix API Response Status: {{ zabbix_host_create.status | default('N/A') }}
+          Zabbix API Raw Content: {{ zabbix_host_create.content | default('No content') }}
+          Zabbix API JSON: {{ zabbix_host_create.json | default('Not valid JSON') }}
+      when: zabbix_host_create.json is not defined or zabbix_host_create.json.error is defined
+
+    - name: Fail if Zabbix Host Create actually failed
+      ansible.builtin.fail:
+        msg: "Failed to create host in Zabbix. Check debug output above."
+      when: zabbix_host_create.json is not defined or zabbix_host_creat
+
 
   handlers:
     - name: restart apache2
