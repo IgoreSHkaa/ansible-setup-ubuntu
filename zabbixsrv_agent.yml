@@ -365,7 +365,7 @@
           jsonrpc: "2.0"
           method: "user.login"
           params:
-            user: "Admin"
+            username: "Admin"
             password: "{{ zabbix_admin_password | default('zabbix') }}"
           id: 1
       register: zabbix_login
