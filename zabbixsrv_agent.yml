@@ -372,7 +372,32 @@
       become: false
       run_once: true
 
-    - name: Get Zabbix Host ID
+    - name: Get ALL Hosts from Zabbix (for debugging)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json-rpc"
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.get"
+          params:
+            output:
+              - hostid
+              - host
+              - name
+          auth: "{{ zabbix_login.json.result }}"
+          id: 2
+      register: all_hosts
+      become: false
+      run_once: true
+
+    - name: Show ALL Hosts in Zabbix
+      ansible.builtin.debug:
+        msg: "All hosts: {{ all_hosts.json.result | map(attribute='host') | list }}"
+
+    - name: Get Zabbix Host by NAME
       ansible.builtin.uri:
         url: "http://127.0.0.1/zabbix/api_jsonrpc.php"
         method: POST
@@ -389,15 +414,14 @@
               - hostid
               - host
           auth: "{{ zabbix_login.json.result }}"
-          id: 2
+          id: 3
       register: zabbix_host_get
       become: false
       run_once: true
 
-    - name: Debug Found Host
+    - name: Debug Search Result
       ansible.builtin.debug:
-        msg: "Found host: {{ zabbix_host_get.json.result[0].host | default('NOT FOUND') }}, ID: {{ zabbix_host_get.json.result[0].hostid | default('N/A') }}"
-      when: zabbix_host_get.json.result is defined and zabbix_host_get.json.result | length > 0
+        msg: "Search for 'Zabbix server' returned: {{ zabbix_host_get.json.result }}"
 
     - name: Update Host with TLS Certificate Encryption
       ansible.builtin.uri:
@@ -416,7 +440,7 @@
             tls_issuer: "Zabbix CA"
             tls_subject: "Zabbix Agent"
           auth: "{{ zabbix_login.json.result }}"
-          id: 3
+          id: 4
       register: zabbix_host_update
       become: false
       run_once: true
