@@ -397,7 +397,7 @@
                 dns: ""
                 port: "10050"
             groups:
-              - groupid "2"
+              - groupid: "2"
             tls_connect: 4    
             tls_accept: 4       
             tls_issuer: "Zabbix CA"
@@ -420,7 +420,7 @@
     - name: Fail if Zabbix Host Create actually failed
       ansible.builtin.fail:
         msg: "Failed to create host in Zabbix. Check debug output above."
-      when: zabbix_host_create.json is not defined or zabbix_host_creat
+      when: zabbix_host_create.json is not defined or zabbzabbix_host_create.json is not defined or zabbix_host_create.json.error is defined
 
 
   handlers:
